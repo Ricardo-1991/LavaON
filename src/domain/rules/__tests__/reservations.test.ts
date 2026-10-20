@@ -1,3 +1,4 @@
+import { describe, expect, test } from 'vitest';
 import type { OperatingDay, Reservation } from '@/domain/models';
 import {
   calculateDailyCapacity,

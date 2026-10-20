@@ -1,20 +1,25 @@
+import styles from './service-form-screen.module.css';
+import { cx } from '@/shared/ui/classes';
+import { showDialog } from '@/shared/ui/dialog';
+import { Toggle } from '@/shared/ui';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useRouteParams, useAppNavigation } from '@/app/navigation';
 import React from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
-import { Alert, StyleSheet, Switch, Text, View } from 'react-native';
+
 import { z } from 'zod';
 
 import { useSaveService, useService } from '@/data/query/hooks';
 import { getErrorMessage } from '@/domain/errors';
 import type { VehicleCategory } from '@/domain/models';
-import { colors, spacing, typography } from '@/shared/theme';
+
 import {
   Button,
   Card,
   FilterChip,
   Input,
   LoadingState,
+  ErrorState,
   ScreenContainer,
   uiStyles,
 } from '@/shared/ui';
@@ -33,8 +38,8 @@ function parsePrice(value: string): number {
 }
 
 export default function ServiceFormScreen() {
-  const { id } = useLocalSearchParams<{ id?: string }>();
-  const router = useRouter();
+  const { id } = useRouteParams<{ id?: string }>();
+  const router = useAppNavigation();
   const query = useService(id);
   const mutation = useSaveService(id);
   const {
@@ -59,10 +64,14 @@ export default function ServiceFormScreen() {
   const category = useWatch({ control, name: 'category' });
   const active = useWatch({ control, name: 'active' });
   if (id && query.isLoading) return <LoadingState />;
+  if (id && (query.error || !query.data))
+    return (
+      <ErrorState message={getErrorMessage(query.error)} onRetry={() => void query.refetch()} />
+    );
   const submit = handleSubmit((values) => {
     const priceInCents = parsePrice(values.price);
     if (!Number.isInteger(priceInCents) || priceInCents <= 0)
-      return Alert.alert('Preço inválido', 'Informe um valor maior que zero.');
+      return showDialog('Preço inválido', 'Informe um valor maior que zero.');
     mutation.mutate(
       {
         name: values.name,
@@ -72,19 +81,21 @@ export default function ServiceFormScreen() {
       },
       {
         onSuccess: () => {
-          Alert.alert('Serviço salvo', 'As alterações foram armazenadas.');
+          showDialog('Serviço salvo', 'As alterações foram armazenadas.');
           router.back();
         },
-        onError: (error) => Alert.alert('Não foi possível salvar', getErrorMessage(error)),
+        onError: (error) => showDialog('Não foi possível salvar', getErrorMessage(error)),
       },
     );
   });
   return (
-    <ScreenContainer>
-      <View>
-        <Text style={uiStyles.title}>{id ? 'Editar serviço' : 'Novo serviço'}</Text>
-        <Text style={uiStyles.muted}>A reserva guardará uma cópia do nome e preço atuais.</Text>
-      </View>
+    <ScreenContainer form>
+      <div className={cx('stack')}>
+        <span className={cx(uiStyles.title)}>{id ? 'Editar serviço' : 'Novo serviço'}</span>
+        <span className={cx(uiStyles.muted)}>
+          A reserva guardará uma cópia do nome e preço atuais.
+        </span>
+      </div>
       <Card>
         <Controller
           control={control}
@@ -99,21 +110,21 @@ export default function ServiceFormScreen() {
             />
           )}
         />
-        <View style={styles.field}>
-          <Text style={styles.label}>Categoria do veículo</Text>
-          <View style={styles.row}>
+        <div className={cx('stack', styles.field)}>
+          <span className={cx(styles.label)}>Categoria do veículo</span>
+          <div className={cx('stack', styles.row)}>
             <FilterChip
               label="Carro pequeno"
               selected={category === 'SMALL_CAR'}
-              onPress={() => setValue('category', 'SMALL_CAR')}
+              onClick={() => setValue('category', 'SMALL_CAR')}
             />
             <FilterChip
               label="Carro grande"
               selected={category === 'LARGE_CAR'}
-              onPress={() => setValue('category', 'LARGE_CAR')}
+              onClick={() => setValue('category', 'LARGE_CAR')}
             />
-          </View>
-        </View>
+          </div>
+        </div>
         <Controller
           control={control}
           name="price"
@@ -128,27 +139,19 @@ export default function ServiceFormScreen() {
             />
           )}
         />
-        <View style={styles.toggle}>
-          <View style={styles.flex}>
-            <Text style={styles.label}>Serviço ativo</Text>
-            <Text style={uiStyles.caption}>Serviços inativos continuam no histórico.</Text>
-          </View>
-          <Switch
+        <div className={cx('stack', styles.toggle)}>
+          <div className={cx('stack', styles.flex)}>
+            <span className={cx(styles.label)}>Serviço ativo</span>
+            <span className={cx(uiStyles.caption)}>Serviços inativos continuam no histórico.</span>
+          </div>
+          <Toggle
+            aria-label="Serviço ativo"
             value={active}
             onValueChange={(value) => setValue('active', value)}
-            trackColor={{ true: colors.primary }}
           />
-        </View>
+        </div>
       </Card>
-      <Button title="Salvar serviço" onPress={submit} loading={mutation.isPending} />
+      <Button title="Salvar serviço" onClick={submit} loading={mutation.isPending} />
     </ScreenContainer>
   );
 }
-
-const styles = StyleSheet.create({
-  field: { gap: spacing.sm },
-  label: { ...typography.label, color: colors.text },
-  row: { flexDirection: 'row', gap: spacing.sm, flexWrap: 'wrap' },
-  toggle: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
-  flex: { flex: 1 },
-});

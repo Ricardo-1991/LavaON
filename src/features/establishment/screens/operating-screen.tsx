@@ -1,11 +1,14 @@
+import styles from './operating-screen.module.css';
+import { cx } from '@/shared/ui/classes';
+import { showDialog } from '@/shared/ui/dialog';
+import { Toggle, NumericInput } from '@/shared/ui';
 import React from 'react';
-import { Alert, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 
 import { useOperatingDays, useUpdateOperatingDays } from '@/data/query/hooks';
 import { getErrorMessage } from '@/domain/errors';
 import type { OperatingDay } from '@/domain/models';
-import { colors, radius, spacing } from '@/shared/theme';
-import { Button, Card, LoadingState, ScreenContainer, uiStyles } from '@/shared/ui';
+
+import { Button, Card, ErrorState, LoadingState, ScreenContainer, uiStyles } from '@/shared/ui';
 
 const names = [
   'Domingo',
@@ -19,7 +22,11 @@ const names = [
 
 export default function OperatingScreen() {
   const query = useOperatingDays();
-  if (query.isLoading || !query.data) return <LoadingState />;
+  if (query.isLoading) return <LoadingState />;
+  if (query.error || !query.data)
+    return (
+      <ErrorState message={getErrorMessage(query.error)} onRetry={() => void query.refetch()} />
+    );
   return <OperatingForm initialDays={query.data} />;
 }
 
@@ -32,70 +39,54 @@ function OperatingForm({ initialDays }: { initialDays: OperatingDay[] }) {
     );
   const save = () => {
     if (days.some((day) => day.open && day.capacity < 1))
-      return Alert.alert('Capacidade inválida', 'Dias abertos precisam de capacidade positiva.');
+      return showDialog('Capacidade inválida', 'Dias abertos precisam de capacidade positiva.');
     mutation.mutate(days, {
-      onSuccess: () => Alert.alert('Funcionamento salvo', 'A agenda foi recalculada.'),
-      onError: (error) => Alert.alert('Não foi possível salvar', getErrorMessage(error)),
+      onSuccess: () => showDialog('Funcionamento salvo', 'A agenda foi recalculada.'),
+      onError: (error) => showDialog('Não foi possível salvar', getErrorMessage(error)),
     });
   };
   return (
-    <ScreenContainer>
-      <View>
-        <Text style={uiStyles.title}>Funcionamento</Text>
-        <Text style={uiStyles.muted}>Alterações valem para hoje e para reservas futuras.</Text>
-      </View>
+    <ScreenContainer form>
+      <div className={cx('stack')}>
+        <span className={cx(uiStyles.title)}>Funcionamento</span>
+        <span className={cx(uiStyles.muted)}>
+          Alterações valem para hoje e para reservas futuras.
+        </span>
+      </div>
       <Card>
         {days.map((day) => (
-          <View key={day.weekday} style={styles.row}>
-            <View style={styles.info}>
-              <Text style={uiStyles.body}>{names[day.weekday]}</Text>
-              <Text style={uiStyles.caption}>{day.open ? 'Capacidade diária' : 'Fechado'}</Text>
-            </View>
+          <div key={day.weekday} className={cx('stack', styles.row)}>
+            <div className={cx('stack', styles.info)}>
+              <span className={cx(uiStyles.body)}>{names[day.weekday]}</span>
+              <span className={cx(uiStyles.caption)}>
+                {day.open ? 'Capacidade diária' : 'Fechado'}
+              </span>
+            </div>
             {day.open ? (
-              <TextInput
-                accessibilityLabel={`Capacidade de ${names[day.weekday]}`}
-                style={styles.input}
+              <NumericInput
+                aria-label={`Capacidade de ${names[day.weekday]}`}
+
                 keyboardType="number-pad"
                 value={String(day.capacity)}
                 onChangeText={(value) =>
                   update(day.weekday, { capacity: Number(value.replace(/\D/g, '')) || 0 })
                 }
+                className={cx(styles.input)}
               />
             ) : null}
-            <Switch
+            <Toggle
+              aria-label={`Abrir ${names[day.weekday]}`}
               value={day.open}
               onValueChange={(open) => update(day.weekday, { open })}
-              trackColor={{ true: colors.primary }}
             />
-          </View>
+          </div>
         ))}
       </Card>
-      <Text style={uiStyles.caption}>
+      <span className={cx(uiStyles.caption)}>
         O aplicativo impede fechar ou reduzir um dia abaixo das reservas que ainda consomem
         capacidade.
-      </Text>
-      <Button title="Salvar funcionamento" onPress={save} loading={mutation.isPending} />
+      </span>
+      <Button title="Salvar funcionamento" onClick={save} loading={mutation.isPending} />
     </ScreenContainer>
   );
 }
-
-const styles = StyleSheet.create({
-  row: {
-    minHeight: 62,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  info: { flex: 1 },
-  input: {
-    width: 58,
-    height: 40,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.sm,
-    textAlign: 'center',
-    color: colors.text,
-  },
-});

@@ -1,6 +1,8 @@
-import { Ionicons } from '@expo/vector-icons';
-import { useLocalSearchParams } from 'expo-router';
-import { Alert, StyleSheet, Text, View } from 'react-native';
+import styles from './reservation-detail-screen.module.css';
+import { cx } from '@/shared/ui/classes';
+import { showDialog } from '@/shared/ui/dialog';
+import { Icon, type IconName } from '@/shared/ui/icon';
+import { useRouteParams } from '@/app/navigation';
 
 import { useEstablishment, useReservation, useReservationAction } from '@/data/query/hooks';
 import { getErrorMessage } from '@/domain/errors';
@@ -11,12 +13,12 @@ import {
   RESERVATION_ACTION_LABELS,
 } from '@/domain/rules/reservations';
 import { StatusBadge } from '@/features/reservations/components/reservation-card';
-import { colors, spacing, typography } from '@/shared/theme';
+import { colors } from '@/shared/theme';
 import { Button, Card, ErrorState, LoadingState, ScreenContainer, uiStyles } from '@/shared/ui';
 import { categoryLabel, formatCalendarDate, formatCurrency } from '@/shared/utils/format';
 
 export default function ReservationDetailScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id } = useRouteParams<{ id: string }>();
   const query = useReservation(id);
   const establishment = useEstablishment();
   const mutation = useReservationAction(id ?? '');
@@ -33,26 +35,26 @@ export default function ReservationDetailScreen() {
   const execute = (action: ReservationAction) => {
     const run = () =>
       mutation.mutate(action, {
-        onError: (error) => Alert.alert('Não foi possível atualizar', getErrorMessage(error)),
-        onSuccess: () => Alert.alert('Reserva atualizada', 'O novo status já aparece na agenda.'),
+        onError: (error) => showDialog('Não foi possível atualizar', getErrorMessage(error)),
+        onSuccess: () => showDialog('Reserva atualizada', 'O novo status já aparece na agenda.'),
       });
     if (action === 'ACCEPT' || action === 'COMPLETE') return run();
-    Alert.alert(RESERVATION_ACTION_LABELS[action], 'Confirma esta ação?', [
+    showDialog(RESERVATION_ACTION_LABELS[action], 'Confirma esta ação?', [
       { text: 'Voltar', style: 'cancel' },
       {
         text: 'Confirmar',
         style: action === 'CANCEL' || action === 'REJECT' ? 'destructive' : 'default',
-        onPress: run,
+        onClick: run,
       },
     ]);
   };
   return (
     <ScreenContainer>
-      <View style={styles.heading}>
+      <div className={cx('stack', styles.heading)}>
         <StatusBadge status={reservation.status} />
-        <Text style={uiStyles.title}>{reservation.snapshot.customerName}</Text>
-        <Text style={styles.date}>{formatCalendarDate(reservation.serviceDate)}</Text>
-      </View>
+        <span className={cx(uiStyles.title)}>{reservation.snapshot.customerName}</span>
+        <span className={cx(styles.date)}>{formatCalendarDate(reservation.serviceDate)}</span>
+      </div>
       <Card>
         <Detail icon="call-outline" label="Telefone" value={reservation.snapshot.customerPhone} />
         <Detail
@@ -75,7 +77,7 @@ export default function ReservationDetailScreen() {
         />
       </Card>
       {actions.length ? (
-        <View style={styles.actions}>
+        <div className={cx('stack', styles.actions)}>
           {actions.map((action) => (
             <Button
               key={action}
@@ -87,47 +89,29 @@ export default function ReservationDetailScreen() {
                     ? 'secondary'
                     : 'primary'
               }
-              onPress={() => execute(action)}
+              onClick={() => execute(action)}
               disabled={mutation.isPending}
               loading={mutation.isPending && mutation.variables === action}
             />
           ))}
-        </View>
+        </div>
       ) : (
-        <Text style={styles.final}>
+        <span className={cx(styles.final)}>
           Esta reserva está em um estado final e permanece disponível somente para consulta.
-        </Text>
+        </span>
       )}
     </ScreenContainer>
   );
 }
 
-function Detail({
-  icon,
-  label,
-  value,
-}: {
-  icon: keyof typeof Ionicons.glyphMap;
-  label: string;
-  value: string;
-}) {
+function Detail({ icon, label, value }: { icon: IconName; label: string; value: string }) {
   return (
-    <View style={styles.detail}>
-      <Ionicons name={icon} size={20} color={colors.primary} />
-      <View style={styles.detailText}>
-        <Text style={styles.label}>{label}</Text>
-        <Text style={uiStyles.body}>{value}</Text>
-      </View>
-    </View>
+    <div className={cx('stack', styles.detail)}>
+      <Icon name={icon} size={20} color={colors.primary} />
+      <div className={cx('stack', styles.detailText)}>
+        <span className={cx(styles.label)}>{label}</span>
+        <span className={cx(uiStyles.body)}>{value}</span>
+      </div>
+    </div>
   );
 }
-
-const styles = StyleSheet.create({
-  heading: { alignItems: 'flex-start', gap: spacing.sm, marginTop: spacing.sm },
-  date: { ...typography.body, color: colors.textMuted, textTransform: 'capitalize' },
-  detail: { flexDirection: 'row', gap: spacing.md, alignItems: 'center' },
-  detailText: { flex: 1 },
-  label: { ...typography.caption, color: colors.textMuted },
-  actions: { gap: spacing.sm },
-  final: { ...typography.body, color: colors.textMuted, textAlign: 'center' },
-});

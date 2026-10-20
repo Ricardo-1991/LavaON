@@ -1,4 +1,5 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { AppError } from '@/domain/errors';
+import { beginWrite, clearFormDirty } from '@/pwa/activity';
 import { addDays, format } from 'date-fns';
 
 import type {
@@ -13,7 +14,9 @@ import type {
 } from '@/domain/models';
 import { getTodayInTimeZone } from '@/domain/rules/reservations';
 
-const STORAGE_KEY = '@lava-on/mock-database/v1';
+export const DATABASE_NAME = 'lava-on-demo';
+const STORE = 'state';
+const STORAGE_KEY = 'database';
 
 export interface MockDatabaseState {
   schemaVersion: 1;
@@ -331,53 +334,135 @@ function createSeed(): MockDatabaseState {
   };
 }
 
-function cloneState(state: MockDatabaseState): MockDatabaseState {
-  return JSON.parse(JSON.stringify(state)) as MockDatabaseState;
+function validateState(value: unknown): MockDatabaseState {
+  if (!value || typeof value !== 'object')
+    throw new AppError(
+      'PERSISTENCE',
+      'Os dados locais não puderam ser lidos. Nenhum cadastro foi apagado.',
+    );
+  const state = value as MockDatabaseState;
+  const collections = [
+    'owners',
+    'establishments',
+    'memberships',
+    'customers',
+    'vehicles',
+    'services',
+    'operatingDays',
+    'reservations',
+  ] as const;
+  if (
+    state.schemaVersion !== 1 ||
+    collections.some((key) => !Array.isArray(state[key])) ||
+    !(state.sessionOwnerId === null || typeof state.sessionOwnerId === 'string')
+  ) {
+    throw new AppError(
+      'PERSISTENCE',
+      'A versão dos dados locais não é compatível. Nenhum cadastro foi apagado.',
+    );
+  }
+  return state;
 }
 
 export class MockDatabase {
-  private state: MockDatabaseState | null = null;
-  private writeQueue: Promise<void> = Promise.resolve();
+  private connection: Promise<IDBDatabase> | null = null;
+  constructor(private factory: IDBFactory | undefined = globalThis.indexedDB) {}
+
+  private open(): Promise<IDBDatabase> {
+    if (this.connection) return this.connection;
+    this.connection = new Promise<IDBDatabase>((resolve, reject) => {
+      if (!this.factory)
+        return reject(
+          new AppError(
+            'PERSISTENCE',
+            'Este navegador não disponibilizou o armazenamento local. Verifique as permissões e tente novamente.',
+          ),
+        );
+      const request = this.factory.open(DATABASE_NAME, 1);
+      request.onupgradeneeded = () => request.result.createObjectStore(STORE);
+      request.onerror = () =>
+        reject(
+          new AppError(
+            'PERSISTENCE',
+            'Não foi possível abrir os dados locais. Nenhum cadastro foi apagado.',
+          ),
+        );
+      request.onblocked = () =>
+        reject(new AppError('PERSISTENCE', 'Feche outras abas do Lava On e tente novamente.'));
+      request.onsuccess = () => {
+        const db = request.result;
+        db.onversionchange = () => {
+          db.close();
+          this.connection = null;
+        };
+        resolve(db);
+      };
+    }).catch((cause) => {
+      this.connection = null;
+      throw cause;
+    });
+    return this.connection;
+  }
 
   async read<T>(reader: (state: MockDatabaseState) => T): Promise<T> {
-    await this.delay();
-    const state = await this.load();
-    return reader(cloneState(state));
+    return this.transaction(reader, false);
   }
 
   async write<T>(writer: (draft: MockDatabaseState) => T): Promise<T> {
-    let output!: T;
-    const operation = this.writeQueue.then(async () => {
-      await this.delay();
-      const current = await this.load();
-      const draft = cloneState(current);
-      output = writer(draft);
-      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(draft));
-      this.state = draft;
-    });
-    this.writeQueue = operation.catch(() => undefined);
-    await operation;
-    return output;
-  }
-
-  private async load(): Promise<MockDatabaseState> {
-    if (this.state) return this.state;
-    const stored = await AsyncStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      const parsed = JSON.parse(stored) as MockDatabaseState;
-      if (parsed.schemaVersion === 1) {
-        this.state = parsed;
-        return parsed;
-      }
+    const finish = beginWrite();
+    try {
+      const output = await this.transaction(writer, true);
+      clearFormDirty();
+      return output;
+    } finally {
+      finish();
     }
-    const seed = createSeed();
-    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(seed));
-    this.state = seed;
-    return seed;
   }
 
-  private delay(): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, 120));
+  private async transaction<T>(
+    operation: (state: MockDatabaseState) => T,
+    write: boolean,
+  ): Promise<T> {
+    const db = await this.open();
+    return new Promise<T>((resolve, reject) => {
+      // The read/modify/write stays in one transaction, including across multiple tabs.
+      const transaction = db.transaction(STORE, 'readwrite');
+      const store = transaction.objectStore(STORE);
+      const request = store.get(STORAGE_KEY);
+      let output: T;
+      let cause: unknown;
+      transaction.oncomplete = () => resolve(output);
+      transaction.onabort = () =>
+        reject(
+          cause ??
+            new AppError(
+              'PERSISTENCE',
+              'Não foi possível salvar os dados neste navegador. Verifique o espaço disponível e tente novamente. Os cadastros anteriores foram preservados.',
+            ),
+        );
+      transaction.onerror = () => {
+        /* onabort reports the failure after rollback. */
+      };
+      request.onsuccess = () => {
+        try {
+          const state = request.result === undefined ? createSeed() : validateState(request.result);
+          output = operation(state);
+          if (write || request.result === undefined) {
+            try {
+              store.put(state, STORAGE_KEY);
+            } catch {
+              throw new AppError(
+                'PERSISTENCE',
+                'Não foi possível salvar os dados neste navegador. Verifique o espaço disponível e tente novamente. Os cadastros anteriores foram preservados.',
+              );
+            }
+          }
+        } catch (error) {
+          cause = error;
+          transaction.abort();
+        }
+      };
+    });
   }
 }
 

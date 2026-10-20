@@ -1,10 +1,13 @@
-import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import { Alert, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
+import styles from './services-screen.module.css';
+import { cx } from '@/shared/ui/classes';
+import { showDialog } from '@/shared/ui/dialog';
+import { Toggle } from '@/shared/ui';
+import { Icon } from '@/shared/ui/icon';
+import { Link, useAppNavigation } from '@/app/navigation';
 
 import { useServices, useToggleService } from '@/data/query/hooks';
 import { getErrorMessage } from '@/domain/errors';
-import { colors, radius, spacing, typography } from '@/shared/theme';
+import { colors } from '@/shared/theme';
 import {
   Button,
   EmptyState,
@@ -16,40 +19,38 @@ import {
 import { categoryLabel, formatCurrency } from '@/shared/utils/format';
 
 export default function ServicesScreen() {
-  const router = useRouter();
+  const router = useAppNavigation();
   const query = useServices();
   const toggle = useToggleService();
   return (
     <ScreenContainer>
-      <View style={styles.heading}>
-        <View style={styles.flex}>
-          <Text style={uiStyles.title}>Serviços</Text>
-          <Text style={uiStyles.muted}>Cada categoria e preço formam uma oferta.</Text>
-        </View>
-        <Button title="Novo" icon="add" onPress={() => router.push('/services/new')} />
-      </View>
+      <div className={cx('stack', styles.heading)}>
+        <div className={cx('stack', styles.flex)}>
+          <span className={cx(uiStyles.title)}>Serviços</span>
+          <span className={cx(uiStyles.muted)}>Cada categoria e preço formam uma oferta.</span>
+        </div>
+        <Button title="Novo" icon="add" onClick={() => router.push('/services/new')} />
+      </div>
       {query.isLoading ? (
         <LoadingState />
       ) : query.error ? (
         <ErrorState message={getErrorMessage(query.error)} onRetry={() => void query.refetch()} />
       ) : query.data?.length ? (
         query.data.map((service) => (
-          <Pressable
-            key={service.id}
-            onPress={() => router.push(`/services/${service.id}`)}
-            style={({ pressed }) => [styles.item, pressed && styles.pressed]}
-          >
-            <View style={styles.icon}>
-              <Ionicons name="water-outline" size={21} color={colors.primary} />
-            </View>
-            <View style={styles.flex}>
-              <Text style={styles.name}>{service.name}</Text>
-              <Text style={styles.meta}>
-                {categoryLabel(service.vehicleCategory)} · {formatCurrency(service.priceInCents)}
-              </Text>
-            </View>
-            <Switch
-              accessibilityLabel={`${service.active ? 'Desativar' : 'Ativar'} ${service.name}`}
+          <div key={service.id} className={cx(styles.item)}>
+            <Link to={`/services/${service.id}`} className={styles.serviceLink}>
+              <div className={cx('stack', styles.icon)}>
+                <Icon name="water-outline" size={21} color={colors.primary} />
+              </div>
+              <div className={cx('stack', styles.flex)}>
+                <span className={cx(styles.name)}>{service.name}</span>
+                <span className={cx(styles.meta)}>
+                  {categoryLabel(service.vehicleCategory)} · {formatCurrency(service.priceInCents)}
+                </span>
+              </div>
+            </Link>
+            <Toggle
+              aria-label={`${service.active ? 'Desativar' : 'Ativar'} ${service.name}`}
               value={service.active}
               disabled={toggle.isPending}
               onValueChange={(active) =>
@@ -57,13 +58,12 @@ export default function ServicesScreen() {
                   { serviceId: service.id, active },
                   {
                     onError: (error) =>
-                      Alert.alert('Não foi possível alterar', getErrorMessage(error)),
+                      showDialog('Não foi possível alterar', getErrorMessage(error)),
                   },
                 )
               }
-              trackColor={{ true: colors.primary }}
             />
-          </Pressable>
+          </div>
         ))
       ) : (
         <EmptyState
@@ -74,30 +74,3 @@ export default function ServicesScreen() {
     </ScreenContainer>
   );
 }
-
-const styles = StyleSheet.create({
-  heading: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
-  flex: { flex: 1 },
-  item: {
-    minHeight: 76,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.md,
-    padding: spacing.md,
-  },
-  pressed: { opacity: 0.75 },
-  icon: {
-    width: 40,
-    height: 40,
-    borderRadius: radius.md,
-    backgroundColor: colors.infoSoft,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  name: { ...typography.heading, color: colors.text },
-  meta: { ...typography.caption, color: colors.textMuted },
-});

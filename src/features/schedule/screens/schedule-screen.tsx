@@ -1,11 +1,12 @@
-import { useRouter } from 'expo-router';
+import styles from './schedule-screen.module.css';
+import { cx } from '@/shared/ui/classes';
+import { useAppNavigation } from '@/app/navigation';
 import { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { useEstablishment, useSchedule } from '@/data/query/hooks';
 import { getErrorMessage } from '@/domain/errors';
 import { getTodayInTimeZone } from '@/domain/rules/reservations';
-import { colors, radius, spacing, typography } from '@/shared/theme';
+
 import {
   Button,
   EmptyState,
@@ -17,17 +18,17 @@ import {
 import { formatCalendarDate } from '@/shared/utils/format';
 
 export default function ScheduleScreen() {
-  const router = useRouter();
+  const router = useAppNavigation();
   const [days, setDays] = useState(30);
   const establishment = useEstablishment();
   const today = getTodayInTimeZone(establishment.data?.timeZone ?? 'America/Sao_Paulo');
   const query = useSchedule(today, days);
   return (
     <ScreenContainer>
-      <View>
-        <Text style={uiStyles.title}>Agenda</Text>
-        <Text style={uiStyles.muted}>Capacidade diária dos próximos {days} dias.</Text>
-      </View>
+      <div className={cx('stack')}>
+        <span className={cx(uiStyles.title)}>Agenda</span>
+        <span className={cx(uiStyles.muted)}>Capacidade diária dos próximos {days} dias.</span>
+      </div>
       {query.isLoading ? (
         <LoadingState />
       ) : query.error ? (
@@ -35,31 +36,38 @@ export default function ScheduleScreen() {
       ) : query.data?.length ? (
         <>
           {query.data.map((day) => (
-            <Pressable
+            <button
+              type="button"
               key={day.capacity.date}
-              onPress={() => router.push(`/schedule/${day.capacity.date}`)}
-              style={styles.day}
+              onClick={() => router.push(`/schedule/${day.capacity.date}`)}
+              className={cx(styles.day)}
             >
-              <View style={styles.dayDate}>
-                <Text style={styles.dayName}>{formatCalendarDate(day.capacity.date, 'EEEE')}</Text>
-                <Text style={styles.date}>{formatCalendarDate(day.capacity.date, 'dd/MM')}</Text>
-              </View>
-              <View style={styles.numbers}>
-                <Text style={styles.available}>
+              <div className={cx('stack', styles.dayDate)}>
+                <span className={cx(styles.dayName)}>
+                  {formatCalendarDate(day.capacity.date, 'EEEE')}
+                </span>
+                <span className={cx(styles.date)}>
+                  {formatCalendarDate(day.capacity.date, 'dd/MM')}
+                </span>
+              </div>
+              <div className={cx('stack', styles.numbers)}>
+                <span className={cx(styles.available)}>
                   {day.capacity.open ? day.capacity.available : '—'}
-                </Text>
-                <Text style={styles.caption}>{day.capacity.open ? 'vagas livres' : 'fechado'}</Text>
-              </View>
-              <View style={styles.summary}>
-                <Text style={styles.caption}>{day.capacity.confirmed} confirmadas</Text>
-                <Text style={styles.caption}>{day.capacity.pending} pendentes</Text>
-              </View>
-            </Pressable>
+                </span>
+                <span className={cx(styles.caption)}>
+                  {day.capacity.open ? 'vagas livres' : 'fechado'}
+                </span>
+              </div>
+              <div className={cx('stack', styles.summary)}>
+                <span className={cx(styles.caption)}>{day.capacity.confirmed} confirmadas</span>
+                <span className={cx(styles.caption)}>{day.capacity.pending} pendentes</span>
+              </div>
+            </button>
           ))}
           <Button
             title="Mostrar mais 30 dias"
             variant="secondary"
-            onPress={() => setDays((value) => value + 30)}
+            onClick={() => setDays((value) => value + 30)}
           />
         </>
       ) : (
@@ -71,24 +79,3 @@ export default function ScheduleScreen() {
     </ScreenContainer>
   );
 }
-
-const styles = StyleSheet.create({
-  day: {
-    minHeight: 78,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    padding: spacing.md,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.md,
-  },
-  dayDate: { width: 92 },
-  dayName: { ...typography.label, color: colors.text, textTransform: 'capitalize' },
-  date: { ...typography.caption, color: colors.textMuted },
-  numbers: { alignItems: 'center', minWidth: 58 },
-  available: { fontSize: 23, lineHeight: 27, fontWeight: '700', color: colors.success },
-  caption: { ...typography.caption, color: colors.textMuted },
-  summary: { flex: 1, alignItems: 'flex-end' },
-});

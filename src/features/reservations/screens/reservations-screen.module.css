@@ -1,0 +1,11 @@
+.chips {
+  gap: 8px;
+}
+
+.total {
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 400;
+  color: #65718a;
+  text-align: center;
+}

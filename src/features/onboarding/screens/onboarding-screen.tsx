@@ -1,15 +1,19 @@
+import styles from './onboarding-screen.module.css';
+import { cx } from '@/shared/ui/classes';
+import { showDialog } from '@/shared/ui/dialog';
+import { Toggle, NumericInput } from '@/shared/ui';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useRouter } from 'expo-router';
+import { useAppNavigation } from '@/app/navigation';
 import React from 'react';
 import { Controller, useForm } from 'react-hook-form';
-import { Alert, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+
 import { z } from 'zod';
 
 import { repositories } from '@/data/repositories/mock-repositories';
 import { getErrorMessage } from '@/domain/errors';
 import type { OperatingDay } from '@/domain/models';
 import { useSession } from '@/providers/session-provider';
-import { colors, radius, spacing, typography } from '@/shared/theme';
+
 import { Button, Card, Input, ScreenContainer, uiStyles } from '@/shared/ui';
 
 const schema = z.object({
@@ -46,7 +50,7 @@ export default function OnboardingScreen() {
   const [days, setDays] = React.useState(initialDays);
   const [saving, setSaving] = React.useState(false);
   const { session, refreshSession } = useSession();
-  const router = useRouter();
+  const router = useAppNavigation();
   const {
     control,
     handleSubmit,
@@ -96,27 +100,30 @@ export default function OnboardingScreen() {
       await refreshSession();
       router.replace('/');
     } catch (error) {
-      Alert.alert('Não foi possível concluir', getErrorMessage(error));
+      showDialog('Não foi possível concluir', getErrorMessage(error));
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <ScreenContainer>
-      <View style={styles.top}>
-        <Text style={styles.eyebrow}>CONFIGURAÇÃO {step + 1} DE 3</Text>
-        <Text style={uiStyles.title}>
+    <ScreenContainer form>
+      <div className={cx('stack', styles.top)}>
+        <span className={cx(styles.eyebrow)}>CONFIGURAÇÃO {step + 1} DE 3</span>
+        <span className={cx(uiStyles.title)}>
           {step === 0
             ? 'Conte sobre seu lava-jato'
             : step === 1
               ? 'Defina o funcionamento'
               : 'Tudo pronto para começar'}
-        </Text>
-        <View style={styles.progress}>
-          <View style={[styles.progressFill, { width: `${((step + 1) / 3) * 100}%` }]} />
-        </View>
-      </View>
+        </span>
+        <div className={cx('stack', styles.progress)}>
+          <div
+            className={cx('stack', styles.progressFill)}
+            style={{ width: `${((step + 1) / 3) * 100}%` }}
+          />
+        </div>
+      </div>
 
       {step === 0 ? (
         <Card>
@@ -157,8 +164,8 @@ export default function OnboardingScreen() {
               />
             )}
           />
-          <View style={styles.twoColumns}>
-            <View style={styles.flex}>
+          <div className={cx('stack', styles.twoColumns)}>
+            <div className={cx('stack', styles.flex)}>
               <Controller
                 control={control}
                 name="number"
@@ -171,8 +178,8 @@ export default function OnboardingScreen() {
                   />
                 )}
               />
-            </View>
-            <View style={styles.flex}>
+            </div>
+            <div className={cx('stack', styles.flex)}>
               <Controller
                 control={control}
                 name="district"
@@ -185,8 +192,8 @@ export default function OnboardingScreen() {
                   />
                 )}
               />
-            </View>
-          </View>
+            </div>
+          </div>
           <Controller
             control={control}
             name="city"
@@ -199,8 +206,8 @@ export default function OnboardingScreen() {
               />
             )}
           />
-          <View style={styles.twoColumns}>
-            <View style={styles.flex}>
+          <div className={cx('stack', styles.twoColumns)}>
+            <div className={cx('stack', styles.flex)}>
               <Controller
                 control={control}
                 name="state"
@@ -214,8 +221,8 @@ export default function OnboardingScreen() {
                   />
                 )}
               />
-            </View>
-            <View style={styles.flex}>
+            </div>
+            <div className={cx('stack', styles.flex)}>
               <Controller
                 control={control}
                 name="postalCode"
@@ -229,8 +236,8 @@ export default function OnboardingScreen() {
                   />
                 )}
               />
-            </View>
-          </View>
+            </div>
+          </div>
           <Controller
             control={control}
             name="complement"
@@ -247,71 +254,72 @@ export default function OnboardingScreen() {
 
       {step === 1 ? (
         <Card>
-          <Text style={uiStyles.muted}>
+          <span className={cx(uiStyles.muted)}>
             Ative os dias e informe quantos veículos podem ser atendidos em cada um.
-          </Text>
+          </span>
           {days.map((day) => (
-            <View key={day.weekday} style={styles.dayRow}>
-              <View style={styles.dayInfo}>
-                <Text style={uiStyles.body}>{weekdayNames[day.weekday]}</Text>
-                <Text style={uiStyles.caption}>{day.open ? 'Aberto' : 'Fechado'}</Text>
-              </View>
+            <div key={day.weekday} className={cx('stack', styles.dayRow)}>
+              <div className={cx('stack', styles.dayInfo)}>
+                <span className={cx(uiStyles.body)}>{weekdayNames[day.weekday]}</span>
+                <span className={cx(uiStyles.caption)}>{day.open ? 'Aberto' : 'Fechado'}</span>
+              </div>
               {day.open ? (
-                <TextInput
-                  accessibilityLabel={`Capacidade de ${weekdayNames[day.weekday]}`}
+                <NumericInput
+                  aria-label={`Capacidade de ${weekdayNames[day.weekday]}`}
                   keyboardType="number-pad"
-                  style={styles.capacityInput}
+
                   value={String(day.capacity)}
                   onChangeText={(value) =>
                     updateDay(day.weekday, { capacity: Number(value.replace(/\D/g, '')) || 0 })
                   }
+                  className={cx(styles.capacityInput)}
                 />
               ) : null}
-              <Switch
+              <Toggle
+                aria-label={`Abrir ${weekdayNames[day.weekday]}`}
                 value={day.open}
                 onValueChange={(open) => updateDay(day.weekday, { open })}
-                trackColor={{ true: colors.primary }}
               />
-            </View>
+            </div>
           ))}
         </Card>
       ) : null}
 
       {step === 2 ? (
         <Card>
-          <Text style={uiStyles.heading}>{getValues('name')}</Text>
-          <Text style={uiStyles.muted}>{getValues('phone')}</Text>
-          <Text style={uiStyles.body}>
+          <span className={cx(uiStyles.heading)}>{getValues('name')}</span>
+          <span className={cx(uiStyles.muted)}>{getValues('phone')}</span>
+          <span className={cx(uiStyles.body)}>
             {getValues('street')}, {getValues('number')} · {getValues('city')}/
             {getValues('state').toUpperCase()}
-          </Text>
-          <View style={styles.divider} />
-          <Text style={uiStyles.heading}>Funcionamento semanal</Text>
-          <Text style={uiStyles.muted}>
+          </span>
+          <div className={cx('stack', styles.divider)} />
+          <span className={cx(uiStyles.heading)}>Funcionamento semanal</span>
+          <span className={cx(uiStyles.muted)}>
             {days.filter((day) => day.open).length} dias abertos · capacidade configurada por dia
-          </Text>
-          <Text style={styles.tip}>
+          </span>
+          <span className={cx(styles.tip)}>
             Depois, cadastre os serviços oferecidos. Você poderá alterar todos esses dados nas
             configurações.
-          </Text>
+          </span>
         </Card>
       ) : null}
 
-      <View style={styles.actions}>
+      <div className={cx('stack', styles.actions)}>
         {step > 0 ? (
           <Button
             title="Voltar"
             variant="secondary"
-            onPress={() => setStep((current) => current - 1)}
+            onClick={() => setStep((current) => current - 1)}
           />
         ) : null}
-        {step === 0 ? <Button title="Continuar" onPress={handleSubmit(() => setStep(1))} /> : null}
+        {step === 0 ? <Button title="Continuar" onClick={handleSubmit(() => setStep(1))} /> : null}
         {step === 1 ? (
           <Button
             title="Revisar"
-            onPress={() => {
+            onClick={() => {
               if (days.some((day) => day.open && day.capacity < 1))
-                return Alert.alert(
+                return showDialog(
                   'Capacidade inválida',
                   'Dias abertos precisam ter ao menos uma vaga.',
                 );
@@ -320,52 +328,9 @@ export default function OnboardingScreen() {
           />
         ) : null}
         {step === 2 ? (
-          <Button title="Concluir configuração" onPress={finish} loading={saving} />
+          <Button title="Concluir configuração" onClick={finish} loading={saving} />
         ) : null}
-      </View>
+      </div>
     </ScreenContainer>
   );
 }
-
-const styles = StyleSheet.create({
-  top: { gap: spacing.sm, marginTop: spacing.lg },
-  eyebrow: { ...typography.label, color: colors.primary },
-  progress: {
-    height: 5,
-    borderRadius: radius.pill,
-    backgroundColor: colors.border,
-    overflow: 'hidden',
-    marginTop: spacing.sm,
-  },
-  progressFill: { height: '100%', backgroundColor: colors.primary },
-  twoColumns: { flexDirection: 'row', gap: spacing.md },
-  flex: { flex: 1 },
-  dayRow: {
-    minHeight: 58,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-  },
-  dayInfo: { flex: 1 },
-  capacityInput: {
-    width: 54,
-    height: 40,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.sm,
-    backgroundColor: colors.background,
-    textAlign: 'center',
-    color: colors.text,
-  },
-  divider: { height: 1, backgroundColor: colors.border },
-  tip: {
-    ...typography.body,
-    color: colors.info,
-    backgroundColor: colors.infoSoft,
-    padding: spacing.md,
-    borderRadius: radius.md,
-  },
-  actions: { gap: spacing.sm },
-});

@@ -1,17 +1,10 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { beforeAll, describe, expect, test } from 'vitest';
 
 import { repositories } from '@/data/repositories/mock-repositories';
-import { AppError } from '@/domain/errors';
 import { getTodayInTimeZone } from '@/domain/rules/reservations';
-
-jest.mock('@react-native-async-storage/async-storage', () => ({
-  __esModule: true,
-  default: jest.requireActual('@react-native-async-storage/async-storage/jest/async-storage-mock'),
-}));
 
 describe('repositórios mockados', () => {
   beforeAll(async () => {
-    await AsyncStorage.clear();
     await repositories.auth.signIn('joao@lavaon.com.br');
   });
 
@@ -19,9 +12,9 @@ describe('repositórios mockados', () => {
     await expect(repositories.establishments.getById('establishment-joao')).resolves.toMatchObject({
       name: 'Lava Jato do João',
     });
-    await expect(repositories.establishments.getById('establishment-pedro')).rejects.toMatchObject<
-      Partial<AppError>
-    >({ code: 'UNAUTHORIZED' });
+    await expect(repositories.establishments.getById('establishment-pedro')).rejects.toMatchObject({
+      code: 'UNAUTHORIZED',
+    });
   });
 
   test('aceitar uma pendência não consome capacidade duas vezes', async () => {

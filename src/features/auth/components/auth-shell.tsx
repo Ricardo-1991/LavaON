@@ -1,8 +1,9 @@
-import { Ionicons } from '@expo/vector-icons';
+import styles from './auth-shell.module.css';
+import { cx } from '@/shared/ui/classes';
+import { Icon } from '@/shared/ui/icon';
 import type { ReactNode } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
 
-import { colors, radius, spacing, typography } from '@/shared/theme';
+import { colors } from '@/shared/theme';
 import { ScreenContainer } from '@/shared/ui';
 
 export function AuthShell({
@@ -15,36 +16,18 @@ export function AuthShell({
   children: ReactNode;
 }) {
   return (
-    <ScreenContainer contentStyle={styles.content}>
-      <View style={styles.brand}>
-        <View style={styles.logo}>
-          <Ionicons name="water" size={28} color={colors.white} />
-        </View>
-        <Text style={styles.brandName}>Lava On</Text>
-      </View>
-      <View style={styles.heading}>
-        <Text style={styles.title}>{title}</Text>
-        <Text style={styles.subtitle}>{subtitle}</Text>
-      </View>
-      <View style={styles.form}>{children}</View>
+    <ScreenContainer form contentClassName={styles.content}>
+      <div className={cx('stack', styles.brand)}>
+        <div className={cx('stack', styles.logo)}>
+          <Icon name="water" size={28} color={colors.white} />
+        </div>
+        <span className={cx(styles.brandName)}>Lava On</span>
+      </div>
+      <div className={cx('stack', styles.heading)}>
+        <h1 className={cx(styles.title)}>{title}</h1>
+        <span className={cx(styles.subtitle)}>{subtitle}</span>
+      </div>
+      <div className={cx('stack', styles.form)}>{children}</div>
     </ScreenContainer>
   );
 }
-
-const styles = StyleSheet.create({
-  content: { flexGrow: 1, justifyContent: 'center', paddingHorizontal: spacing.xl },
-  brand: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  logo: {
-    width: 48,
-    height: 48,
-    borderRadius: radius.md,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  brandName: { ...typography.title, color: colors.text },
-  heading: { gap: spacing.sm, marginTop: spacing.lg },
-  title: { ...typography.display, color: colors.text },
-  subtitle: { ...typography.body, color: colors.textMuted },
-  form: { gap: spacing.lg, marginTop: spacing.md },
-});

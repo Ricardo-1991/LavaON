@@ -1,0 +1,42 @@
+.heading {
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.date {
+  font-size: 15px;
+  line-height: 21px;
+  font-weight: 400;
+  color: #65718a;
+  text-transform: capitalize;
+}
+
+.detail {
+  flex-direction: row;
+  gap: 12px;
+  align-items: center;
+}
+
+.detailText {
+  flex: 1;
+}
+
+.label {
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 400;
+  color: #65718a;
+}
+
+.actions {
+  gap: 8px;
+}
+
+.final {
+  font-size: 15px;
+  line-height: 21px;
+  font-weight: 400;
+  color: #65718a;
+  text-align: center;
+}

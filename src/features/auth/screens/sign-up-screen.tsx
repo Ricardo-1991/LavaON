@@ -1,13 +1,16 @@
+import styles from './sign-up-screen.module.css';
+import { cx } from '@/shared/ui/classes';
+import { showDialog } from '@/shared/ui/dialog';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Link, useRouter } from 'expo-router';
+import { Link, useAppNavigation } from '@/app/navigation';
 import { Controller, useForm } from 'react-hook-form';
-import { Alert, StyleSheet, Text } from 'react-native';
+
 import { z } from 'zod';
 
 import { getErrorMessage } from '@/domain/errors';
 import { AuthShell } from '@/features/auth/components/auth-shell';
 import { useSession } from '@/providers/session-provider';
-import { colors, typography } from '@/shared/theme';
+
 import { Button, Input } from '@/shared/ui';
 
 const schema = z.object({
@@ -19,7 +22,7 @@ type FormData = z.infer<typeof schema>;
 
 export default function SignUpScreen() {
   const { signUp } = useSession();
-  const router = useRouter();
+  const router = useAppNavigation();
   const {
     control,
     handleSubmit,
@@ -33,7 +36,7 @@ export default function SignUpScreen() {
       await signUp({ name, email });
       router.replace('/');
     } catch (error) {
-      Alert.alert('Não foi possível criar a conta', getErrorMessage(error));
+      showDialog('Não foi possível criar a conta', getErrorMessage(error));
     }
   });
   return (
@@ -81,18 +84,13 @@ export default function SignUpScreen() {
           />
         )}
       />
-      <Button title="Criar conta" onPress={submit} loading={isSubmitting} />
-      <Text style={styles.footer}>
+      <Button title="Criar conta" onClick={submit} loading={isSubmitting} />
+      <span className={cx(styles.footer)}>
         Já possui conta?{' '}
-        <Link href="/(auth)/login" style={styles.link}>
+        <Link to="/login" className={cx(styles.link)}>
           Entrar
         </Link>
-      </Text>
+      </span>
     </AuthShell>
   );
 }
-
-const styles = StyleSheet.create({
-  link: { ...typography.label, color: colors.primary },
-  footer: { ...typography.body, color: colors.textMuted, textAlign: 'center' },
-});

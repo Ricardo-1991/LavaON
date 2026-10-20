@@ -1,0 +1,55 @@
+.day {
+  min-height: 78px;
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background-color: #ffffff;
+  border-style: solid;
+  border-width: 1px;
+  border-color: #dce2ea;
+  border-radius: 12px;
+}
+
+.dayDate {
+  width: 92px;
+}
+
+.dayName {
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 600;
+  color: #14213d;
+  text-transform: capitalize;
+}
+
+.date {
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 400;
+  color: #65718a;
+}
+
+.numbers {
+  align-items: center;
+  min-width: 58px;
+}
+
+.available {
+  font-size: 23px;
+  line-height: 27px;
+  font-weight: 700;
+  color: #157f4b;
+}
+
+.caption {
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 400;
+  color: #65718a;
+}
+
+.summary {
+  flex: 1;
+  align-items: flex-end;
+}

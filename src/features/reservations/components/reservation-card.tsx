@@ -1,9 +1,10 @@
-import { Ionicons } from '@expo/vector-icons';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import styles from './reservation-card.module.css';
+import { cx } from '@/shared/ui/classes';
+import { Icon } from '@/shared/ui/icon';
 
 import type { Reservation } from '@/domain/models';
 import { RESERVATION_STATUS_META } from '@/domain/rules/reservations';
-import { colors, radius, spacing, typography } from '@/shared/theme';
+import { colors } from '@/shared/theme';
 import { formatCurrency, formatShortDate } from '@/shared/utils/format';
 
 const toneStyles = {
@@ -18,74 +19,44 @@ export function StatusBadge({ status }: { status: Reservation['status'] }) {
   const meta = RESERVATION_STATUS_META[status];
   const tone = toneStyles[meta.tone];
   return (
-    <Text style={[styles.badge, { backgroundColor: tone.backgroundColor, color: tone.color }]}>
+    <span
+      className={cx(styles.badge)}
+      style={{ backgroundColor: tone.backgroundColor, color: tone.color }}
+    >
       {meta.label}
-    </Text>
+    </span>
   );
 }
 
 export function ReservationCard({
   reservation,
-  onPress,
+  onClick,
 }: {
   reservation: Reservation;
-  onPress: () => void;
+  onClick: () => void;
 }) {
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [styles.card, pressed && styles.pressed]}>
-      <View style={styles.topRow}>
-        <View style={styles.identity}>
-          <Text style={styles.name}>{reservation.snapshot.customerName}</Text>
-          <Text style={styles.vehicle}>
+    <button type="button" onClick={onClick} className={cx(styles.card)}>
+      <div className={cx('stack', styles.topRow)}>
+        <div className={cx('stack', styles.identity)}>
+          <span className={cx(styles.name)}>{reservation.snapshot.customerName}</span>
+          <span className={cx(styles.vehicle)}>
             {reservation.snapshot.vehicleDescription} · {reservation.snapshot.vehiclePlate}
-          </Text>
-        </View>
+          </span>
+        </div>
         <StatusBadge status={reservation.status} />
-      </View>
-      <View style={styles.divider} />
-      <View style={styles.bottomRow}>
-        <View style={styles.meta}>
-          <Ionicons name="calendar-outline" size={15} color={colors.textMuted} />
-          <Text style={styles.metaText}>{formatShortDate(reservation.serviceDate)}</Text>
-        </View>
-        <Text style={styles.service}>{reservation.snapshot.serviceName}</Text>
-        <Text style={styles.price}>{formatCurrency(reservation.snapshot.priceInCents)}</Text>
-      </View>
-    </Pressable>
+      </div>
+      <div className={cx('stack', styles.divider)} />
+      <div className={cx('stack', styles.bottomRow)}>
+        <div className={cx('stack', styles.meta)}>
+          <Icon name="calendar-outline" size={15} color={colors.textMuted} />
+          <span className={cx(styles.metaText)}>{formatShortDate(reservation.serviceDate)}</span>
+        </div>
+        <span className={cx(styles.service)}>{reservation.snapshot.serviceName}</span>
+        <span className={cx(styles.price)}>
+          {formatCurrency(reservation.snapshot.priceInCents)}
+        </span>
+      </div>
+    </button>
   );
 }
-
-const styles = StyleSheet.create({
-  card: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.lg,
-    padding: spacing.lg,
-    gap: spacing.md,
-  },
-  pressed: { opacity: 0.75 },
-  topRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    gap: spacing.md,
-  },
-  identity: { flex: 1, gap: 2 },
-  name: { ...typography.heading, color: colors.text },
-  vehicle: { ...typography.caption, color: colors.textMuted },
-  badge: {
-    ...typography.caption,
-    fontWeight: '700',
-    borderRadius: radius.pill,
-    overflow: 'hidden',
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-  },
-  divider: { height: 1, backgroundColor: colors.border },
-  bottomRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  meta: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
-  metaText: { ...typography.caption, color: colors.textMuted },
-  service: { ...typography.caption, color: colors.textMuted, flex: 1 },
-  price: { ...typography.label, color: colors.text },
-});

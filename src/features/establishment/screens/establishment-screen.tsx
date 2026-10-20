@@ -1,12 +1,22 @@
+import { cx } from '@/shared/ui/classes';
+import { showDialog } from '@/shared/ui/dialog';
 import { zodResolver } from '@hookform/resolvers/zod';
 import React from 'react';
 import { Controller, useForm } from 'react-hook-form';
-import { Alert, Text, View } from 'react-native';
+
 import { z } from 'zod';
 
 import { useEstablishment, useUpdateEstablishment } from '@/data/query/hooks';
 import { getErrorMessage } from '@/domain/errors';
-import { Button, Card, Input, LoadingState, ScreenContainer, uiStyles } from '@/shared/ui';
+import {
+  Button,
+  Card,
+  Input,
+  ErrorState,
+  LoadingState,
+  ScreenContainer,
+  uiStyles,
+} from '@/shared/ui';
 
 const schema = z.object({
   name: z.string().trim().min(3),
@@ -54,6 +64,10 @@ export default function EstablishmentScreen() {
       });
   }, [query.data, reset]);
   if (query.isLoading) return <LoadingState />;
+  if (query.error || !query.data)
+    return (
+      <ErrorState message={getErrorMessage(query.error)} onRetry={() => void query.refetch()} />
+    );
   const submit = handleSubmit((values) =>
     mutation.mutate(
       {
@@ -70,17 +84,17 @@ export default function EstablishmentScreen() {
         },
       },
       {
-        onSuccess: () => Alert.alert('Dados salvos', 'O estabelecimento foi atualizado.'),
-        onError: (error) => Alert.alert('Não foi possível salvar', getErrorMessage(error)),
+        onSuccess: () => showDialog('Dados salvos', 'O estabelecimento foi atualizado.'),
+        onError: (error) => showDialog('Não foi possível salvar', getErrorMessage(error)),
       },
     ),
   );
   return (
-    <ScreenContainer>
-      <View>
+    <ScreenContainer form>
+      <div className={cx('stack')}>
         <TextTitle />
         <TextMuted />
-      </View>
+      </div>
       <Card>
         <Controller
           control={control}
@@ -193,14 +207,18 @@ export default function EstablishmentScreen() {
           )}
         />
       </Card>
-      <Button title="Salvar alterações" onPress={submit} loading={mutation.isPending} />
+      <Button title="Salvar alterações" onClick={submit} loading={mutation.isPending} />
     </ScreenContainer>
   );
 }
 
 function TextTitle() {
-  return <Text style={uiStyles.title}>Dados do estabelecimento</Text>;
+  return <span className={cx(uiStyles.title)}>Dados do estabelecimento</span>;
 }
 function TextMuted() {
-  return <Text style={uiStyles.muted}>Estas informações aparecerão na futura página pública.</Text>;
+  return (
+    <span className={cx(uiStyles.muted)}>
+      Estas informações aparecerão na futura página pública.
+    </span>
+  );
 }

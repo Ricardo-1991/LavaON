@@ -1,0 +1,62 @@
+.display {
+  font-size: 30px;
+  line-height: 36px;
+  font-weight: 700;
+  color: #14213d;
+}
+
+.title {
+  font-size: 22px;
+  line-height: 28px;
+  font-weight: 700;
+  color: #14213d;
+}
+
+.heading {
+  font-size: 17px;
+  line-height: 22px;
+  font-weight: 700;
+  color: #14213d;
+}
+
+.body {
+  font-size: 15px;
+  line-height: 21px;
+  font-weight: 400;
+  color: #14213d;
+}
+
+.muted {
+  font-size: 15px;
+  line-height: 21px;
+  font-weight: 400;
+  color: #65718a;
+}
+
+.caption {
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 400;
+  color: #65718a;
+}
+
+.row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+}
+
+.between {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.gapSm {
+  gap: 8px;
+}
+
+.gapMd {
+  gap: 12px;
+}

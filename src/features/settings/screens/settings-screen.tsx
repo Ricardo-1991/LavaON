@@ -1,10 +1,12 @@
-import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import styles from './settings-screen.module.css';
+import { cx } from '@/shared/ui/classes';
+import { Icon } from '@/shared/ui/icon';
+import { useAppNavigation } from '@/app/navigation';
 
 import { useEstablishment } from '@/data/query/hooks';
-import { colors, radius, spacing, typography } from '@/shared/theme';
-import { LoadingState, ScreenContainer, uiStyles } from '@/shared/ui';
+import { getErrorMessage } from '@/domain/errors';
+import { colors } from '@/shared/theme';
+import { ErrorState, LoadingState, ScreenContainer, uiStyles } from '@/shared/ui';
 
 const items = [
   {
@@ -34,70 +36,45 @@ const items = [
 ];
 
 export default function SettingsScreen() {
-  const router = useRouter();
+  const router = useAppNavigation();
   const establishment = useEstablishment();
   if (establishment.isLoading) return <LoadingState />;
+  if (establishment.error)
+    return (
+      <ErrorState
+        message={getErrorMessage(establishment.error)}
+        onRetry={() => void establishment.refetch()}
+      />
+    );
   return (
     <ScreenContainer>
-      <View>
-        <Text style={uiStyles.title}>Configurações</Text>
-        <Text style={uiStyles.muted}>{establishment.data?.name}</Text>
-      </View>
+      <div className={cx('stack')}>
+        <span className={cx(uiStyles.title)}>Configurações</span>
+        <span className={cx(uiStyles.muted)}>{establishment.data?.name}</span>
+      </div>
       {items.map((item) => (
-        <Pressable
+        <button
+          type="button"
           key={item.title}
-          onPress={() => router.push(item.route)}
-          style={({ pressed }) => [styles.item, pressed && styles.pressed]}
+          onClick={() => router.push(item.route)}
+          className={cx(styles.item)}
         >
-          <View style={styles.icon}>
-            <Ionicons name={item.icon} size={22} color={colors.primary} />
-          </View>
-          <View style={styles.flex}>
-            <Text style={styles.title}>{item.title}</Text>
-            <Text style={styles.description}>{item.description}</Text>
-          </View>
-          <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
-        </Pressable>
+          <div className={cx('stack', styles.icon)}>
+            <Icon name={item.icon} size={22} color={colors.primary} />
+          </div>
+          <div className={cx('stack', styles.flex)}>
+            <span className={cx(styles.title)}>{item.title}</span>
+            <span className={cx(styles.description)}>{item.description}</span>
+          </div>
+          <Icon name="chevron-forward" size={20} color={colors.textMuted} />
+        </button>
       ))}
-      <View style={styles.future}>
-        <Text style={styles.futureTitle}>Em breve</Text>
-        <Text style={styles.description}>
+      <div className={cx('stack', styles.future)}>
+        <span className={cx(styles.futureTitle)}>Em breve</span>
+        <span className={cx(styles.description)}>
           Notificações, página pública e plano da assinatura serão adicionados em etapas futuras.
-        </Text>
-      </View>
+        </span>
+      </div>
     </ScreenContainer>
   );
 }
-
-const styles = StyleSheet.create({
-  item: {
-    minHeight: 76,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.md,
-    padding: spacing.md,
-  },
-  pressed: { opacity: 0.75 },
-  icon: {
-    width: 42,
-    height: 42,
-    borderRadius: radius.md,
-    backgroundColor: colors.infoSoft,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  flex: { flex: 1 },
-  title: { ...typography.heading, color: colors.text },
-  description: { ...typography.caption, color: colors.textMuted },
-  future: {
-    padding: spacing.lg,
-    backgroundColor: colors.surfaceMuted,
-    borderRadius: radius.md,
-    gap: spacing.xs,
-  },
-  futureTitle: { ...typography.label, color: colors.text },
-});

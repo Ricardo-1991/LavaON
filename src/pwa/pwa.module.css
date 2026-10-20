@@ -1,0 +1,45 @@
+.controls {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px 16px;
+  color: #65718a;
+  font-size: 12px;
+  line-height: 18px;
+}
+.controls:empty {
+  display: none;
+}
+.controls button {
+  display: inline-flex;
+  color: #0b5fff;
+  font-weight: 600;
+  min-height: 32px;
+  justify-content: center;
+  align-items: center;
+}
+.controls button:disabled {
+  opacity: 0.5;
+}
+.notice {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border: 1px solid #dce2ea;
+  border-radius: 12px;
+  background: #fff;
+  padding: 8px 12px;
+  flex-wrap: wrap;
+}
+.notice span {
+  flex: 1;
+  min-width: 100px;
+}
+.instructions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: #e7f0ff;
+  padding: 12px;
+  border-radius: 12px;
+}

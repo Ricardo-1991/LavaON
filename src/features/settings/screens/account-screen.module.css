@@ -1,0 +1,17 @@
+.field {
+  gap: 4px;
+}
+
+.label {
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 600;
+  color: #14213d;
+}
+
+.value {
+  font-size: 15px;
+  line-height: 21px;
+  font-weight: 400;
+  color: #65718a;
+}

@@ -1,13 +1,14 @@
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import styles from './reservations-screen.module.css';
+import { cx } from '@/shared/ui/classes';
+import { useRouteParams, useAppNavigation } from '@/app/navigation';
 import { useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { useReservations } from '@/data/query/hooks';
 import { getErrorMessage } from '@/domain/errors';
 import type { ReservationPeriod, ReservationStatusFilter } from '@/domain/models';
 import { getTodayInTimeZone } from '@/domain/rules/reservations';
 import { ReservationCard } from '@/features/reservations/components/reservation-card';
-import { colors, spacing, typography } from '@/shared/theme';
+
 import {
   EmptyState,
   ErrorState,
@@ -35,7 +36,7 @@ const statuses: { value: ReservationStatusFilter; label: string }[] = [
 ];
 
 export default function ReservationsScreen() {
-  const params = useLocalSearchParams<{ status?: string }>();
+  const params = useRouteParams<{ status?: string }>();
   const [period, setPeriod] = useState<ReservationPeriod>('ALL');
   const [status, setStatus] = useState<ReservationStatusFilter>(
     (statuses.some((item) => item.value === params.status)
@@ -43,28 +44,26 @@ export default function ReservationsScreen() {
       : 'ALL') as ReservationStatusFilter,
   );
   const [date, setDate] = useState(getTodayInTimeZone('America/Sao_Paulo'));
-  const router = useRouter();
+  const router = useAppNavigation();
   const query = useReservations({ period, status, date: period === 'DATE' ? date : undefined });
   return (
     <ScreenContainer>
-      <View>
-        <Text style={uiStyles.title}>Reservas</Text>
-        <Text style={uiStyles.muted}>Acompanhe solicitações, atendimentos e histórico.</Text>
-      </View>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.chips}
-      >
+      <div className={cx('stack')}>
+        <span className={cx(uiStyles.title)}>Reservas</span>
+        <span className={cx(uiStyles.muted)}>
+          Acompanhe solicitações, atendimentos e histórico.
+        </span>
+      </div>
+      <div className={cx('horizontal-scroll', styles.chips)}>
         {periods.map((item) => (
           <FilterChip
             key={item.value}
             label={item.label}
             selected={period === item.value}
-            onPress={() => setPeriod(item.value)}
+            onClick={() => setPeriod(item.value)}
           />
         ))}
-      </ScrollView>
+      </div>
       {period === 'DATE' ? (
         <Input
           label="Data da reserva (AAAA-MM-DD)"
@@ -73,20 +72,16 @@ export default function ReservationsScreen() {
           autoCapitalize="none"
         />
       ) : null}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.chips}
-      >
+      <div className={cx('horizontal-scroll', styles.chips)}>
         {statuses.map((item) => (
           <FilterChip
             key={item.value}
             label={item.label}
             selected={status === item.value}
-            onPress={() => setStatus(item.value)}
+            onClick={() => setStatus(item.value)}
           />
         ))}
-      </ScrollView>
+      </div>
       {query.isLoading ? (
         <LoadingState />
       ) : query.error ? (
@@ -97,10 +92,10 @@ export default function ReservationsScreen() {
             <ReservationCard
               key={reservation.id}
               reservation={reservation}
-              onPress={() => router.push(`/reservations/${reservation.id}`)}
+              onClick={() => router.push(`/reservations/${reservation.id}`)}
             />
           ))}
-          <Text style={styles.total}>{query.data.total} reserva(s)</Text>
+          <span className={cx(styles.total)}>{query.data.total} reserva(s)</span>
         </>
       ) : (
         <EmptyState
@@ -112,8 +107,3 @@ export default function ReservationsScreen() {
     </ScreenContainer>
   );
 }
-
-const styles = StyleSheet.create({
-  chips: { gap: spacing.sm },
-  total: { ...typography.caption, color: colors.textMuted, textAlign: 'center' },
-});

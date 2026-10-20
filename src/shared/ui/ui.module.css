@@ -1,0 +1,221 @@
+.screen {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  padding: 16px;
+  padding-bottom: 48px;
+  gap: 16px;
+  min-width: 0;
+}
+.card {
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border: 1px solid #dce2ea;
+  border-radius: 18px;
+  padding: 16px;
+  gap: 12px;
+  min-width: 0;
+}
+.button {
+  min-height: 48px;
+  border-radius: 12px;
+  padding: 0 16px;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 15px;
+  font-weight: 600;
+}
+.primary {
+  background: #0b5fff;
+  color: #fff;
+}
+.secondary {
+  background: #e7f0ff;
+  color: #0b5fff;
+  border: 1px solid #0b5fff;
+}
+.danger {
+  background: #c53232;
+  color: #fff;
+}
+.ghost {
+  background: transparent;
+  color: #0b5fff;
+}
+.button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.field label {
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 600;
+}
+.input {
+  min-height: 48px;
+  width: 100%;
+  border: 1px solid #dce2ea;
+  border-radius: 12px;
+  background: #fff;
+  color: #14213d;
+  padding: 10px 12px;
+  font-size: 16px;
+  line-height: 21px;
+}
+.input::placeholder {
+  color: #65718a;
+}
+.inputError {
+  border-color: #c53232;
+}
+.errorText {
+  font-size: 12px;
+  line-height: 16px;
+  color: #c53232;
+}
+.sectionHeader {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.sectionHeader h2 {
+  font-size: 17px;
+  line-height: 22px;
+  font-weight: 700;
+}
+.chip {
+  flex-shrink: 0;
+  border-radius: 999px;
+  background: #fff;
+  border: 1px solid #dce2ea;
+  padding: 8px 12px;
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 600;
+  color: #65718a;
+  white-space: nowrap;
+}
+.chipSelected {
+  background: #0b5fff;
+  border-color: #0b5fff;
+  color: #fff;
+}
+.state {
+  min-height: 180px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  gap: 8px;
+  text-align: center;
+}
+.state h2 {
+  font-size: 17px;
+  line-height: 22px;
+  font-weight: 700;
+}
+.state p {
+  font-size: 15px;
+  line-height: 21px;
+  color: #65718a;
+}
+.spinner {
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  border: 3px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+.toggle {
+  appearance: none;
+  flex-shrink: 0;
+  width: 44px;
+  height: 26px;
+  border: 0;
+  border-radius: 999px;
+  background: #dce2ea;
+  position: relative;
+  cursor: pointer;
+}
+.toggle::before {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px #0002;
+  transition: transform 0.15s;
+}
+.toggle:checked {
+  background: #0b5fff;
+}
+.toggle:checked::before {
+  transform: translateX(18px);
+}
+.toggle:disabled {
+  opacity: 0.5;
+}
+.dialog {
+  max-width: calc(100vw - 32px);
+  width: 400px;
+  border: 1px solid #dce2ea;
+  border-radius: 18px;
+  padding: 24px;
+  background: #fff;
+  color: #14213d;
+}
+.dialog::backdrop {
+  background: #14213d70;
+}
+.dialog h2 {
+  font-size: 22px;
+  line-height: 28px;
+  margin-bottom: 12px;
+}
+.dialog p {
+  font-size: 15px;
+  line-height: 21px;
+  white-space: pre-line;
+}
+.dialogActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 24px;
+}
+.dialogActions button {
+  border-radius: 12px;
+  padding: 12px 16px;
+  min-height: 44px;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation: none;
+  }
+  .toggle::before {
+    transition: none;
+  }
+}

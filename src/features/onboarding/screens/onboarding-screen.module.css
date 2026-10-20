@@ -1,0 +1,78 @@
+.top {
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.eyebrow {
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 600;
+  color: #0b5fff;
+}
+
+.progress {
+  height: 5px;
+  border-radius: 999px;
+  background-color: #dce2ea;
+  overflow: hidden;
+  margin-top: 8px;
+}
+
+.progressFill {
+  height: 100%;
+  background-color: #0b5fff;
+}
+
+.twoColumns {
+  flex-direction: row;
+  gap: 12px;
+}
+
+.flex {
+  flex: 1;
+}
+
+.dayRow {
+  min-height: 58px;
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+  border-top-style: solid;
+  border-top-width: 1px;
+  border-top-color: #dce2ea;
+}
+
+.dayInfo {
+  flex: 1;
+}
+
+.capacityInput {
+  width: 54px;
+  height: 40px;
+  border-style: solid;
+  border-width: 1px;
+  border-color: #dce2ea;
+  border-radius: 8px;
+  background-color: #f5f7fb;
+  text-align: center;
+  color: #14213d;
+}
+
+.divider {
+  height: 1px;
+  background-color: #dce2ea;
+}
+
+.tip {
+  font-size: 15px;
+  line-height: 21px;
+  font-weight: 400;
+  color: #155bcb;
+  background-color: #e7f0ff;
+  padding: 12px;
+  border-radius: 12px;
+}
+
+.actions {
+  gap: 8px;
+}

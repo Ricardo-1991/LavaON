@@ -1,13 +1,16 @@
+import styles from './forgot-password-screen.module.css';
+import { cx } from '@/shared/ui/classes';
+import { showDialog } from '@/shared/ui/dialog';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Link } from 'expo-router';
+import { Link } from '@/app/navigation';
 import { Controller, useForm } from 'react-hook-form';
-import { Alert, StyleSheet } from 'react-native';
+
 import { z } from 'zod';
 
 import { repositories } from '@/data/repositories/mock-repositories';
 import { getErrorMessage } from '@/domain/errors';
 import { AuthShell } from '@/features/auth/components/auth-shell';
-import { colors, typography } from '@/shared/theme';
+
 import { Button, Input } from '@/shared/ui';
 
 const schema = z.object({ email: z.email('Informe um e-mail válido.') });
@@ -22,12 +25,9 @@ export default function ForgotPasswordScreen() {
   const submit = handleSubmit(async ({ email }) => {
     try {
       await repositories.auth.requestPasswordRecovery(email);
-      Alert.alert(
-        'Solicitação registrada',
-        'No produto real, enviaremos as instruções por e-mail.',
-      );
+      showDialog('Solicitação registrada', 'No produto real, enviaremos as instruções por e-mail.');
     } catch (error) {
-      Alert.alert('Não foi possível continuar', getErrorMessage(error));
+      showDialog('Não foi possível continuar', getErrorMessage(error));
     }
   });
   return (
@@ -49,14 +49,10 @@ export default function ForgotPasswordScreen() {
           />
         )}
       />
-      <Button title="Solicitar recuperação" onPress={submit} loading={isSubmitting} />
-      <Link href="/(auth)/login" style={styles.link}>
+      <Button title="Solicitar recuperação" onClick={submit} loading={isSubmitting} />
+      <Link to="/login" className={cx(styles.link)}>
         Voltar para o login
       </Link>
     </AuthShell>
   );
 }
-
-const styles = StyleSheet.create({
-  link: { ...typography.label, color: colors.primary, textAlign: 'center' },
-});

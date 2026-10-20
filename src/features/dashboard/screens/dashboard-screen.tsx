@@ -1,6 +1,7 @@
-import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import styles from './dashboard-screen.module.css';
+import { cx } from '@/shared/ui/classes';
+import { Icon, type IconName } from '@/shared/ui/icon';
+import { useAppNavigation } from '@/app/navigation';
 
 import { useDashboard, useEstablishment } from '@/data/query/hooks';
 import { getErrorMessage } from '@/domain/errors';
@@ -8,7 +9,7 @@ import { getTodayInTimeZone } from '@/domain/rules/reservations';
 import { ReservationCard } from '@/features/reservations/components/reservation-card';
 import { CapacitySummary } from '@/features/schedule/components/capacity-summary';
 import { useSession } from '@/providers/session-provider';
-import { colors, radius, spacing, typography } from '@/shared/theme';
+import { colors } from '@/shared/theme';
 import {
   Button,
   Card,
@@ -22,7 +23,7 @@ import {
 import { formatCalendarDate } from '@/shared/utils/format';
 
 export default function DashboardScreen() {
-  const router = useRouter();
+  const router = useAppNavigation();
   const { session } = useSession();
   const establishment = useEstablishment();
   const today = getTodayInTimeZone(establishment.data?.timeZone ?? 'America/Sao_Paulo');
@@ -44,37 +45,37 @@ export default function DashboardScreen() {
   const greeting = hour < 12 ? 'Bom dia' : hour < 18 ? 'Boa tarde' : 'Boa noite';
   return (
     <ScreenContainer>
-      <View style={styles.heading}>
-        <Text style={styles.kicker}>{establishment.data?.name}</Text>
-        <Text style={uiStyles.title}>
+      <div className={cx('stack', styles.heading)}>
+        <span className={cx(styles.kicker)}>{establishment.data?.name}</span>
+        <span className={cx(uiStyles.title)}>
           {greeting}, {session?.owner.name.split(' ')[0]}.
-        </Text>
-        <Text style={styles.date}>{formatCalendarDate(today)}</Text>
-      </View>
+        </span>
+        <span className={cx(styles.date)}>{formatCalendarDate(today)}</span>
+      </div>
       <CapacitySummary capacity={data.capacity} />
       {data.activeServiceCount === 0 ? (
         <Card>
-          <Text style={uiStyles.heading}>Cadastre seu primeiro serviço</Text>
-          <Text style={uiStyles.muted}>
+          <span className={cx(uiStyles.heading)}>Cadastre seu primeiro serviço</span>
+          <span className={cx(uiStyles.muted)}>
             Serviços ativos são necessários para receber solicitações quando a página pública for
             conectada.
-          </Text>
-          <Button title="Cadastrar serviço" onPress={() => router.push('/services/new')} />
+          </span>
+          <Button title="Cadastrar serviço" onClick={() => router.push('/services/new')} />
         </Card>
       ) : null}
-      <View style={styles.shortcuts}>
+      <div className={cx('stack', styles.shortcuts)}>
         <Shortcut
           icon="calendar-outline"
           label="Ver agenda"
-          onPress={() => router.push('/schedule')}
+          onClick={() => router.push('/schedule')}
         />
         <Shortcut
           icon="car-outline"
           label="Reservas"
-          onPress={() => router.push('/reservations')}
+          onClick={() => router.push('/reservations')}
         />
-        <Shortcut icon="water-outline" label="Serviços" onPress={() => router.push('/services')} />
-      </View>
+        <Shortcut icon="water-outline" label="Serviços" onClick={() => router.push('/services')} />
+      </div>
       <SectionHeader
         title={`Aguardando aprovação (${data.pendingReservations.length})`}
         action={
@@ -82,7 +83,7 @@ export default function DashboardScreen() {
             <Button
               title="Ver todas"
               variant="ghost"
-              onPress={() =>
+              onClick={() =>
                 router.push({ pathname: '/reservations', params: { status: 'PENDING' } })
               }
             />
@@ -96,7 +97,7 @@ export default function DashboardScreen() {
             <ReservationCard
               key={reservation.id}
               reservation={reservation}
-              onPress={() => router.push(`/reservations/${reservation.id}`)}
+              onClick={() => router.push(`/reservations/${reservation.id}`)}
             />
           ))
       ) : (
@@ -112,7 +113,7 @@ export default function DashboardScreen() {
           <ReservationCard
             key={reservation.id}
             reservation={reservation}
-            onPress={() => router.push(`/reservations/${reservation.id}`)}
+            onClick={() => router.push(`/reservations/${reservation.id}`)}
           />
         ))
       ) : (
@@ -128,7 +129,7 @@ export default function DashboardScreen() {
           <ReservationCard
             key={reservation.id}
             reservation={reservation}
-            onPress={() => router.push(`/reservations/${reservation.id}`)}
+            onClick={() => router.push(`/reservations/${reservation.id}`)}
           />
         ))
       ) : (
@@ -145,34 +146,16 @@ export default function DashboardScreen() {
 function Shortcut({
   icon,
   label,
-  onPress,
+  onClick,
 }: {
-  icon: keyof typeof Ionicons.glyphMap;
+  icon: IconName;
   label: string;
-  onPress: () => void;
+  onClick: () => void;
 }) {
   return (
-    <Pressable onPress={onPress} style={styles.shortcut}>
-      <Ionicons name={icon} size={21} color={colors.primary} />
-      <Text style={styles.shortcutLabel}>{label}</Text>
-    </Pressable>
+    <button type="button" onClick={onClick} className={cx(styles.shortcut)}>
+      <Icon name={icon} size={21} color={colors.primary} />
+      <span className={cx(styles.shortcutLabel)}>{label}</span>
+    </button>
   );
 }
-
-const styles = StyleSheet.create({
-  heading: { gap: spacing.xs, marginTop: spacing.sm },
-  kicker: { ...typography.label, color: colors.primary },
-  date: { ...typography.body, color: colors.textMuted, textTransform: 'capitalize' },
-  shortcuts: { flexDirection: 'row', gap: spacing.sm },
-  shortcut: {
-    flex: 1,
-    minHeight: 78,
-    backgroundColor: colors.infoSoft,
-    borderRadius: radius.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.xs,
-    padding: spacing.sm,
-  },
-  shortcutLabel: { ...typography.label, color: colors.primary, textAlign: 'center' },
-});

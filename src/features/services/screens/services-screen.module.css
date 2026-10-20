@@ -1,0 +1,58 @@
+.heading {
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+}
+
+.flex {
+  flex: 1;
+}
+
+.item {
+  min-height: 76px;
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+  background-color: #ffffff;
+  border-style: solid;
+  border-width: 1px;
+  border-color: #dce2ea;
+  border-radius: 12px;
+  padding: 12px;
+}
+
+.pressed {
+  opacity: 0.75;
+}
+
+.icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background-color: #e7f0ff;
+  align-items: center;
+  justify-content: center;
+}
+
+.name {
+  font-size: 17px;
+  line-height: 22px;
+  font-weight: 700;
+  color: #14213d;
+}
+
+.meta {
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 400;
+  color: #65718a;
+}
+
+.serviceLink {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  gap: 12px;
+  align-items: center;
+  color: inherit;
+}

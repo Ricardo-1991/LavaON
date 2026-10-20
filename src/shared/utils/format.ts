@@ -20,3 +20,9 @@ export function formatShortDate(date: CalendarDate): string {
 export function categoryLabel(category: VehicleCategory): string {
   return category === 'SMALL_CAR' ? 'Carro pequeno' : 'Carro grande';
 }
+
+export function isCalendarDate(value: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const date = new Date(`${value}T12:00:00Z`);
+  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
+}

@@ -1,0 +1,43 @@
+.heading {
+  gap: 4px;
+  margin-top: 8px;
+}
+
+.kicker {
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 600;
+  color: #0b5fff;
+}
+
+.date {
+  font-size: 15px;
+  line-height: 21px;
+  font-weight: 400;
+  color: #65718a;
+  text-transform: capitalize;
+}
+
+.shortcuts {
+  flex-direction: row;
+  gap: 8px;
+}
+
+.shortcut {
+  flex: 1;
+  min-height: 78px;
+  background-color: #e7f0ff;
+  border-radius: 12px;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 8px;
+}
+
+.shortcutLabel {
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 600;
+  color: #0b5fff;
+  text-align: center;
+}

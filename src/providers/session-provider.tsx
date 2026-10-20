@@ -7,6 +7,7 @@ import type { Session, SignUpInput } from '@/domain/models';
 interface SessionContextValue {
   session: Session | null;
   ready: boolean;
+  error: string | null;
   signIn(email: string): Promise<void>;
   signUp(input: SignUpInput): Promise<void>;
   signOut(): Promise<void>;
@@ -19,10 +20,18 @@ const SessionContext = createContext<SessionContextValue | null>(null);
 export function SessionProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [ready, setReady] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
   const refreshSession = useCallback(async () => {
-    setSession(await repositories.auth.getSession());
+    try {
+      setSession(await repositories.auth.getSession());
+      setError(null);
+    } catch (cause) {
+      setError(
+        cause instanceof Error ? cause.message : 'Não foi possível acessar os dados locais.',
+      );
+    }
   }, []);
 
   useEffect(() => {
@@ -32,8 +41,11 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       .then((restoredSession) => {
         if (active) setSession(restoredSession);
       })
-      .catch(() => {
-        if (active) setSession(null);
+      .catch((cause: unknown) => {
+        if (active)
+          setError(
+            cause instanceof Error ? cause.message : 'Não foi possível acessar os dados locais.',
+          );
       })
       .finally(() => {
         if (active) setReady(true);
@@ -47,6 +59,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     () => ({
       session,
       ready,
+      error,
       async signIn(email) {
         setSession(await repositories.auth.signIn(email));
         queryClient.clear();
@@ -66,7 +79,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         setSession(await repositories.auth.updateOwnerName(session.owner.id, name));
       },
     }),
-    [queryClient, ready, refreshSession, session],
+    [queryClient, ready, error, refreshSession, session],
   );
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;

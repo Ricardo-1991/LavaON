@@ -1,0 +1,90 @@
+.card {
+  background-color: #ffffff;
+  border-style: solid;
+  border-width: 1px;
+  border-color: #dce2ea;
+  border-radius: 18px;
+  padding: 16px;
+  gap: 12px;
+}
+
+.pressed {
+  opacity: 0.75;
+}
+
+.topRow {
+  flex-direction: row;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.identity {
+  flex: 1;
+  gap: 2px;
+}
+
+.name {
+  font-size: 17px;
+  line-height: 22px;
+  font-weight: 700;
+  color: #14213d;
+}
+
+.vehicle {
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 400;
+  color: #65718a;
+}
+
+.badge {
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 700;
+  border-radius: 999px;
+  overflow: hidden;
+  padding-left: 8px;
+  padding-right: 8px;
+  padding-top: 4px;
+  padding-bottom: 4px;
+}
+
+.divider {
+  height: 1px;
+  background-color: #dce2ea;
+}
+
+.bottomRow {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+
+.meta {
+  flex-direction: row;
+  align-items: center;
+  gap: 4px;
+}
+
+.metaText {
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 400;
+  color: #65718a;
+}
+
+.service {
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 400;
+  color: #65718a;
+  flex: 1;
+}
+
+.price {
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 600;
+  color: #14213d;
+}

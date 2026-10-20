@@ -1,0 +1,52 @@
+.content {
+  flex-grow: 1;
+  justify-content: center;
+  padding-left: 24px;
+  padding-right: 24px;
+}
+
+.brand {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+
+.logo {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background-color: #0b5fff;
+  align-items: center;
+  justify-content: center;
+}
+
+.brandName {
+  font-size: 22px;
+  line-height: 28px;
+  font-weight: 700;
+  color: #14213d;
+}
+
+.heading {
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.title {
+  font-size: 30px;
+  line-height: 36px;
+  font-weight: 700;
+  color: #14213d;
+}
+
+.subtitle {
+  font-size: 15px;
+  line-height: 21px;
+  font-weight: 400;
+  color: #65718a;
+}
+
+.form {
+  gap: 16px;
+  margin-top: 12px;
+}

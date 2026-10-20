@@ -1,7 +1,8 @@
-import { StyleSheet, Text, View } from 'react-native';
+import styles from './capacity-summary.module.css';
+import { cx } from '@/shared/ui/classes';
 
 import type { DailyCapacity } from '@/domain/models';
-import { colors, radius, spacing, typography } from '@/shared/theme';
+import { colors } from '@/shared/theme';
 
 export function CapacitySummary({ capacity }: { capacity: DailyCapacity }) {
   const metrics = [
@@ -12,33 +13,20 @@ export function CapacitySummary({ capacity }: { capacity: DailyCapacity }) {
     { label: 'Atendidos', value: capacity.completed, color: colors.primary },
   ];
   return (
-    <View style={styles.grid}>
+    <div className={cx('stack', styles.grid)}>
       {metrics.map((metric) => (
-        <View key={metric.label} style={styles.metric}>
-          <Text style={[styles.value, { color: metric.color }]}>{metric.value}</Text>
-          <Text style={styles.label}>{metric.label}</Text>
-        </View>
+        <div key={metric.label} className={cx('stack', styles.metric)}>
+          <span className={cx(styles.value)} style={{ color: metric.color }}>
+            {metric.value}
+          </span>
+          <span className={cx(styles.label)}>{metric.label}</span>
+        </div>
       ))}
       {capacity.inconsistent ? (
-        <Text style={styles.warning}>A capacidade está abaixo das reservas existentes.</Text>
+        <span className={cx(styles.warning)}>
+          A capacidade está abaixo das reservas existentes.
+        </span>
       ) : null}
-    </View>
+    </div>
   );
 }
-
-const styles = StyleSheet.create({
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
-  metric: {
-    width: '31%',
-    minWidth: 96,
-    flexGrow: 1,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.md,
-    padding: spacing.md,
-  },
-  value: { fontSize: 24, lineHeight: 29, fontWeight: '700' },
-  label: { ...typography.caption, color: colors.textMuted, marginTop: spacing.xs },
-  warning: { ...typography.caption, color: colors.danger, width: '100%' },
-});
