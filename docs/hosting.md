@@ -2,6 +2,24 @@
 
 O resultado de `npm run build` está em `dist/`. Publique todos os arquivos, preservando os nomes gerados. Não é necessário servidor Node.js em produção.
 
+## Vercel
+
+O projeto inclui `vercel.json` com framework Vite, instalação por `npm ci`, build por `npm run build` e saída em `dist`. As URLs do aplicativo retornam `index.html`, enquanto arquivos e os diretórios de assets e ícones mantêm seu tratamento estático. O HTML e o service worker são revalidados; arquivos com hash em `/assets/` usam cache imutável.
+
+Para publicar pela CLI com sua conta Vercel:
+
+```bash
+npx vercel login
+npx vercel link
+npx vercel deploy --prod
+```
+
+Na primeira publicação, crie ou selecione o projeto `lava-on` e use o domínio estável `*.vercel.app` atribuído pela Vercel para os testes do cliente. Confira o acesso em uma janela anônima para garantir que ele não exija uma conta Vercel. Se houver proteção de acesso, ajuste-a somente no projeto de demonstração ou disponibilize um link de compartilhamento.
+
+Nas publicações seguintes, mantenha o mesmo projeto e domínio para conservar o IndexedDB. O vínculo local da conta/projeto em `.vercel/` não é versionado. `.vercelignore` evita enviar documentação, capturas, testes, configurações nativas e arquivos de ambiente para o build remoto. Nenhuma variável de ambiente é necessária para a demonstração.
+
+A conta de demonstração é `joao@lavaon.com.br`, com senha `demo`. Os dados são locais a cada navegador e não são compartilhados entre os dispositivos do cliente.
+
 ## Requisitos
 
 - HTTPS para uso do service worker fora de localhost.
@@ -41,4 +59,4 @@ HTML, service worker e manifest devem ser revalidados, sem cache permanente. Arq
 5. Instalar onde houver suporte e conferir ícone, nome e abertura independente.
 6. Publicar outra versão e confirmar que o aviso de atualização aparece sem descartar formulários automaticamente.
 
-Conserve a mesma origem nas atualizações para manter os dados locais. Não há backend, coleta de erros ou monitoramento remoto nesta demonstração. A seleção do provedor, domínio e publicação não fazem parte da migração.
+Conserve a mesma origem nas atualizações para manter os dados locais. Não há backend, coleta de erros ou monitoramento remoto nesta demonstração. A publicação para testes utiliza a Vercel; domínio personalizado e backend continuam fora desta etapa.

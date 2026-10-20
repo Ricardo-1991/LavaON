@@ -55,7 +55,7 @@ Se usar um executável de WebKit preparado em outro ambiente, configure `LAVA_WE
 
 ## Hospedagem
 
-Publique o conteúdo de `dist/` em um serviço de arquivos estáticos com HTTPS. O provedor ainda não foi escolhido. Instruções de rotas e cache estão em [docs/hosting.md](docs/hosting.md).
+O projeto está configurado para publicação na Vercel com HTTPS, rotas internas e cache da PWA. Instruções de publicação, rotas e cache estão em [docs/hosting.md](docs/hosting.md).
 
 ## Estrutura
 
