@@ -57,6 +57,8 @@ Se usar um executável de WebKit preparado em outro ambiente, configure `LAVA_WE
 
 O projeto está configurado para publicação na Vercel com HTTPS, rotas internas e cache da PWA. Instruções de publicação, rotas e cache estão em [docs/hosting.md](docs/hosting.md).
 
+Versão de testes publicada: [https://lava-on.vercel.app](https://lava-on.vercel.app). Use a conta demonstrativa acima; cada navegador mantém seus próprios cadastros.
+
 ## Estrutura
 
 - `src/app`: navegação web, proteção de rotas e estrutura do aplicativo.

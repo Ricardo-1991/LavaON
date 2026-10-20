@@ -4,6 +4,8 @@ O resultado de `npm run build` está em `dist/`. Publique todos os arquivos, pre
 
 ## Vercel
 
+Publicado em 20/10/2026: **[https://lava-on.vercel.app](https://lava-on.vercel.app)**, no projeto `ricardo1991s-projects/lava-on`. Esse é o endereço estável para compartilhar com o cliente e instalar a PWA. O acesso foi verificado sem autenticação Vercel.
+
 O projeto inclui `vercel.json` com framework Vite, instalação por `npm ci`, build por `npm run build` e saída em `dist`. As URLs do aplicativo retornam `index.html`, enquanto arquivos e os diretórios de assets e ícones mantêm seu tratamento estático. O HTML e o service worker são revalidados; arquivos com hash em `/assets/` usam cache imutável.
 
 Para publicar pela CLI com sua conta Vercel:

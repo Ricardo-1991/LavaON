@@ -24,6 +24,10 @@ O ambiente Linux precisou de bibliotecas adicionais para o WebKit. Elas foram ex
 
 Typecheck, lint, formatação, build e verificação de espaços do diff aprovados. Vitest: 20 testes aprovados em 6 arquivos. Playwright: 25 testes aprovados e 2 omissões intencionais do cenário de atualização nas engines Firefox/WebKit. Os testes por toque também passaram nos três navegadores, incluindo orientação horizontal.
 
+## Publicação na Vercel em 20/10/2026
+
+O endereço público [https://lava-on.vercel.app](https://lava-on.vercel.app) foi validado por requisições HTTP sem credenciais e em uma sessão nova do Chromium. Passaram: login demonstrativo, links diretos, manifest e ícones, service worker em HTTPS, cache de assets, resposta 404 para arquivos inexistentes, criação e persistência de serviço offline, atualização de reserva após recarga offline e layout centralizado em desktop. Não houve erros JavaScript nessa conferência. Typecheck, lint, os 20 testes unitários e o build também passaram antes da publicação.
+
 ## Conferência física pendente
 
 Nenhum aparelho físico está conectado a este ambiente. Antes de disponibilizar ao cliente, conferir Android, iPhone/iPad e computador: instalação pelo navegador, modo independente, teclado virtual, áreas seguras, orientação horizontal, modo avião e encerramento/reabertura. A automação em WebKit não equivale a um teste real do Safari no iOS.
