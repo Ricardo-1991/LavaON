@@ -15,3 +15,5 @@ eas.json
 expo-env.d.ts
 *.log
 .env*
+
+test-results-shared/

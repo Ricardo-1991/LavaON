@@ -1,3 +1,4 @@
+import PublicBookingScreen from '@/features/booking/screens/public-booking-screen';
 import { useEffect, useRef } from 'react';
 import { BrowserRouter, Navigate, NavLink, Outlet, Route, Routes, useLocation } from 'react-router';
 import LoginScreen from '@/features/auth/screens/login-screen';
@@ -7,6 +8,7 @@ import DashboardScreen from '@/features/dashboard/screens/dashboard-screen';
 import OnboardingScreen from '@/features/onboarding/screens/onboarding-screen';
 import ScheduleScreen from '@/features/schedule/screens/schedule-screen';
 import DayDetailScreen from '@/features/schedule/screens/day-detail-screen';
+import SchedulePeriodScreen from '@/features/schedule/screens/schedule-period-screen';
 import ReservationsScreen from '@/features/reservations/screens/reservations-screen';
 import ReservationDetailScreen from '@/features/reservations/screens/reservation-detail-screen';
 import SettingsScreen from '@/features/settings/screens/settings-screen';
@@ -67,19 +69,23 @@ function Frame() {
     tab?.title ??
     (pathname.startsWith('/reservations/')
       ? 'Detalhes da reserva'
-      : pathname.startsWith('/schedule/')
-        ? 'Agenda do dia'
-        : pathname === '/services'
-          ? 'Serviços'
-          : pathname === '/services/new'
-            ? 'Novo serviço'
-            : pathname.startsWith('/services/')
-              ? 'Editar serviço'
-              : pathname === '/settings/establishment'
-                ? 'Estabelecimento'
-                : pathname === '/settings/operating'
-                  ? 'Funcionamento'
-                  : 'Conta');
+      : pathname === '/schedule/new'
+        ? 'Novo dia'
+        : pathname === '/schedule/new-week'
+          ? 'Nova semana'
+          : pathname.startsWith('/schedule/')
+            ? 'Agenda do dia'
+            : pathname === '/services'
+              ? 'Serviços'
+              : pathname === '/services/new'
+                ? 'Novo serviço'
+                : pathname.startsWith('/services/')
+                  ? 'Editar serviço'
+                  : pathname === '/settings/establishment'
+                    ? 'Estabelecimento'
+                    : pathname === '/settings/operating'
+                      ? 'Funcionamento'
+                      : 'Conta');
   useEffect(() => {
     document.title = `${title} · Lava On`;
     window.scrollTo(0, 0);
@@ -142,6 +148,11 @@ function SessionRoutes() {
         <Route element={<Frame />}>
           <Route index element={<DashboardScreen />} />
           <Route path="schedule" element={<ScheduleScreen />} />
+          <Route path="schedule/new" element={<SchedulePeriodScreen key="day" mode="day" />} />
+          <Route
+            path="schedule/new-week"
+            element={<SchedulePeriodScreen key="week" mode="week" />}
+          />
           <Route path="schedule/:date" element={<DayDetailScreen />} />
           <Route path="reservations" element={<ReservationsScreen />} />
           <Route path="reservations/:id" element={<ReservationDetailScreen />} />
@@ -166,7 +177,10 @@ export function App() {
           Ir para o conteúdo
         </a>
         <main id="main" className={styles.main}>
-          <SessionRoutes />
+          <Routes>
+            <Route path="book/:establishmentId" element={<PublicBookingScreen />} />
+            <Route path="*" element={<SessionRoutes />} />
+          </Routes>
         </main>
         <PwaControls />
         <DialogHost />

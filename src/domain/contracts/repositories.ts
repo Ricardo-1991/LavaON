@@ -13,11 +13,12 @@ import type {
   ServiceInput,
   Session,
   SignUpInput,
+  SchedulePeriodInput,
 } from '@/domain/models';
 
 export interface AuthRepository {
   getSession(): Promise<Session | null>;
-  signIn(email: string): Promise<Session>;
+  signIn(email: string, password?: string): Promise<Session>;
   signUp(input: SignUpInput): Promise<Session>;
   requestPasswordRecovery(email: string): Promise<void>;
   signOut(): Promise<void>;
@@ -60,6 +61,7 @@ export interface ReservationRepository {
 export interface ScheduleRepository {
   getRange(establishmentId: string, startDate: CalendarDate, days: number): Promise<DaySchedule[]>;
   getDay(establishmentId: string, date: CalendarDate): Promise<DaySchedule>;
+  createPeriod(establishmentId: string, input: SchedulePeriodInput): Promise<DaySchedule[]>;
 }
 
 export interface DashboardRepository {

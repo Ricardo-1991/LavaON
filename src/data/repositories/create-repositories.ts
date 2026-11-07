@@ -1,0 +1,500 @@
+import type {
+  ApplicationState as MockDatabaseState,
+  StateDatabase,
+} from '../../domain/models/state.js';
+import type { Repositories } from '../../domain/contracts/repositories.js';
+import { AppError } from '../../domain/errors.js';
+import { addCalendarDays, getSchedulePeriod } from '../../domain/rules/schedule.js';
+import type {
+  CalendarDate,
+  EstablishmentInput,
+  Reservation,
+  ReservationFilters,
+  ReservationStatusFilter,
+  ServiceInput,
+  Session,
+} from '../../domain/models/index.js';
+import {
+  calculateDailyCapacity,
+  getTodayInTimeZone,
+  isCapacityConsuming,
+  transitionReservation,
+} from '../../domain/rules/reservations.js';
+
+function createId(prefix: string): string {
+  return `${prefix}-${crypto.randomUUID()}`;
+}
+
+function requireEstablishment(state: MockDatabaseState, establishmentId: string) {
+  const establishment = state.establishments.find((item) => item.id === establishmentId);
+  if (!establishment) throw new AppError('NOT_FOUND', 'Estabelecimento não encontrado.');
+  const authorized =
+    state.sessionOwnerId &&
+    state.memberships.some(
+      (membership) =>
+        membership.ownerId === state.sessionOwnerId &&
+        membership.establishmentId === establishmentId,
+    );
+  if (!authorized) {
+    throw new AppError('UNAUTHORIZED', 'Você não possui acesso a este estabelecimento.');
+  }
+  return establishment;
+}
+
+function buildSession(state: MockDatabaseState, ownerId: string): Session {
+  const owner = state.owners.find((item) => item.id === ownerId);
+  if (!owner) throw new AppError('UNAUTHORIZED', 'Sessão inválida.');
+  const memberships = state.memberships.filter((item) => item.ownerId === ownerId);
+  return { owner, memberships, activeEstablishmentId: memberships[0]?.establishmentId ?? null };
+}
+
+function getOperatingDay(state: MockDatabaseState, establishmentId: string, date: CalendarDate) {
+  const weekday = new Date(`${date}T12:00:00Z`).getUTCDay();
+  const configuration = state.scheduleDays.find(
+    (day) => day.establishmentId === establishmentId && day.date === date,
+  );
+  if (configuration) return { ...configuration, weekday: weekday as 0 | 1 | 2 | 3 | 4 | 5 | 6 };
+  return state.operatingDays.find(
+    (day) => day.establishmentId === establishmentId && day.weekday === weekday,
+  );
+}
+
+function getDaySchedule(state: MockDatabaseState, establishmentId: string, date: CalendarDate) {
+  requireEstablishment(state, establishmentId);
+  const reservations = state.reservations
+    .filter((item) => item.establishmentId === establishmentId && item.serviceDate === date)
+    .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  return {
+    capacity: calculateDailyCapacity(
+      establishmentId,
+      date,
+      getOperatingDay(state, establishmentId, date),
+      reservations,
+    ),
+    reservations,
+    configuration:
+      state.scheduleDays.find(
+        (day) => day.establishmentId === establishmentId && day.date === date,
+      ) ?? null,
+  };
+}
+
+function matchesStatus(status: Reservation['status'], filter: ReservationStatusFilter): boolean {
+  if (filter === 'ALL') return true;
+  if (filter === 'FINISHED') return status === 'COMPLETED' || status === 'NO_SHOW';
+  return status === filter;
+}
+
+function validateEstablishment(input: EstablishmentInput) {
+  if (!input.name.trim() || !input.phone.trim() || !input.address.city.trim()) {
+    throw new AppError('VALIDATION', 'Preencha os dados obrigatórios do estabelecimento.');
+  }
+}
+
+function validateService(input: ServiceInput) {
+  if (!input.name.trim() || !Number.isInteger(input.priceInCents) || input.priceInCents <= 0) {
+    throw new AppError('VALIDATION', 'Informe nome e preço válido para o serviço.');
+  }
+}
+
+export function createRepositories(database: StateDatabase): Repositories {
+  return {
+    auth: {
+      async getSession() {
+        return database.read((state) =>
+          state.sessionOwnerId ? buildSession(state, state.sessionOwnerId) : null,
+        );
+      },
+      async signIn(email) {
+        const normalized = email.trim().toLowerCase();
+        return database.write((state) => {
+          const owner = state.owners.find((item) => item.email.toLowerCase() === normalized);
+          if (!owner) {
+            throw new AppError(
+              'UNAUTHORIZED',
+              'Conta não encontrada. Use joao@lavaon.com.br para conhecer a demonstração.',
+            );
+          }
+          state.sessionOwnerId = owner.id;
+          return buildSession(state, owner.id);
+        });
+      },
+      async signUp(input) {
+        const normalized = input.email.trim().toLowerCase();
+        if (!input.name.trim() || !normalized.includes('@')) {
+          throw new AppError('VALIDATION', 'Informe nome e e-mail válidos.');
+        }
+        return database.write((state) => {
+          if (state.owners.some((owner) => owner.email.toLowerCase() === normalized)) {
+            throw new AppError('VALIDATION', 'Já existe uma conta com este e-mail.');
+          }
+          const owner = {
+            id: createId('owner'),
+            name: input.name.trim(),
+            email: normalized,
+            createdAt: new Date().toISOString(),
+          };
+          state.owners.push(owner);
+          state.sessionOwnerId = owner.id;
+          return buildSession(state, owner.id);
+        });
+      },
+      async requestPasswordRecovery(email) {
+        if (!email.trim().includes('@')) {
+          throw new AppError('VALIDATION', 'Informe um e-mail válido.');
+        }
+        await database.read(() => undefined);
+      },
+      async signOut() {
+        await database.write((state) => {
+          state.sessionOwnerId = null;
+        });
+      },
+      async updateOwnerName(ownerId, name) {
+        if (!name.trim()) throw new AppError('VALIDATION', 'Informe seu nome.');
+        return database.write((state) => {
+          if (state.sessionOwnerId !== ownerId)
+            throw new AppError('UNAUTHORIZED', 'Sessão inválida.');
+          const owner = state.owners.find((item) => item.id === ownerId);
+          if (!owner) throw new AppError('NOT_FOUND', 'Conta não encontrada.');
+          owner.name = name.trim();
+          return buildSession(state, ownerId);
+        });
+      },
+    },
+    establishments: {
+      async getById(establishmentId) {
+        return database.read((state) => requireEstablishment(state, establishmentId));
+      },
+      async createForOwner(ownerId, input, days) {
+        validateEstablishment(input);
+        if (
+          days.some((day) => day.open && (!Number.isInteger(day.capacity) || day.capacity <= 0))
+        ) {
+          throw new AppError('VALIDATION', 'Dias abertos precisam de capacidade positiva.');
+        }
+        return database.write((state) => {
+          if (
+            state.sessionOwnerId !== ownerId ||
+            !state.owners.some((owner) => owner.id === ownerId)
+          ) {
+            throw new AppError('UNAUTHORIZED', 'Conta não encontrada.');
+          }
+          const timestamp = new Date().toISOString();
+          const establishment = {
+            id: createId('establishment'),
+            ...input,
+            name: input.name.trim(),
+            phone: input.phone.trim(),
+            timeZone: 'America/Sao_Paulo',
+            onboardingCompleted: true,
+            createdAt: timestamp,
+            updatedAt: timestamp,
+          };
+          state.establishments.push(establishment);
+          state.memberships.push({ ownerId, establishmentId: establishment.id, role: 'OWNER' });
+          state.operatingDays.push(
+            ...days.map((day) => ({ ...day, establishmentId: establishment.id })),
+          );
+          return establishment;
+        });
+      },
+      async update(establishmentId, input) {
+        validateEstablishment(input);
+        return database.write((state) => {
+          const establishment = requireEstablishment(state, establishmentId);
+          Object.assign(establishment, input, { updatedAt: new Date().toISOString() });
+          return establishment;
+        });
+      },
+      async getOperatingDays(establishmentId) {
+        return database.read((state) => {
+          requireEstablishment(state, establishmentId);
+          return state.operatingDays
+            .filter((day) => day.establishmentId === establishmentId)
+            .sort((a, b) => a.weekday - b.weekday);
+        });
+      },
+      async updateOperatingDays(establishmentId, days) {
+        return database.write((state) => {
+          const establishment = requireEstablishment(state, establishmentId);
+          const today = getTodayInTimeZone(establishment.timeZone);
+          for (const day of days) {
+            if (day.open && (!Number.isInteger(day.capacity) || day.capacity <= 0)) {
+              throw new AppError('VALIDATION', 'Dias abertos precisam de capacidade positiva.');
+            }
+            const affectedDates = new Set(
+              state.reservations
+                .filter(
+                  (reservation) =>
+                    reservation.establishmentId === establishmentId &&
+                    reservation.serviceDate >= today &&
+                    new Date(`${reservation.serviceDate}T12:00:00Z`).getUTCDay() === day.weekday &&
+                    isCapacityConsuming(reservation.status),
+                )
+                .map((reservation) => reservation.serviceDate),
+            );
+            for (const date of affectedDates) {
+              // A dated agenda has its own capacity and is not changed by the weekly template.
+              if (
+                state.scheduleDays.some(
+                  (item) => item.establishmentId === establishmentId && item.date === date,
+                )
+              )
+                continue;
+              const count = state.reservations.filter(
+                (reservation) =>
+                  reservation.establishmentId === establishmentId &&
+                  reservation.serviceDate === date &&
+                  isCapacityConsuming(reservation.status),
+              ).length;
+              if (!day.open || day.capacity < count) {
+                throw new AppError(
+                  'CAPACITY_CONFLICT',
+                  `A configuração conflita com ${count} reserva(s) em ${date}.`,
+                );
+              }
+            }
+          }
+          state.operatingDays = state.operatingDays.filter(
+            (day) => day.establishmentId !== establishmentId,
+          );
+          state.operatingDays.push(...days.map((day) => ({ ...day, establishmentId })));
+          return days.map((day) => ({ ...day, establishmentId }));
+        });
+      },
+    },
+    services: {
+      async list(establishmentId) {
+        return database.read((state) => {
+          requireEstablishment(state, establishmentId);
+          return state.services
+            .filter((service) => service.establishmentId === establishmentId)
+            .sort((a, b) => Number(b.active) - Number(a.active) || a.name.localeCompare(b.name));
+        });
+      },
+      async getById(establishmentId, serviceId) {
+        return database.read((state) => {
+          requireEstablishment(state, establishmentId);
+          const service = state.services.find(
+            (item) => item.id === serviceId && item.establishmentId === establishmentId,
+          );
+          if (!service) throw new AppError('NOT_FOUND', 'Serviço não encontrado.');
+          return service;
+        });
+      },
+      async create(establishmentId, input) {
+        validateService(input);
+        return database.write((state) => {
+          requireEstablishment(state, establishmentId);
+          const timestamp = new Date().toISOString();
+          const service = {
+            id: createId('service'),
+            establishmentId,
+            ...input,
+            name: input.name.trim(),
+            createdAt: timestamp,
+            updatedAt: timestamp,
+          };
+          state.services.push(service);
+          return service;
+        });
+      },
+      async update(establishmentId, serviceId, input) {
+        validateService(input);
+        return database.write((state) => {
+          requireEstablishment(state, establishmentId);
+          const service = state.services.find(
+            (item) => item.id === serviceId && item.establishmentId === establishmentId,
+          );
+          if (!service) throw new AppError('NOT_FOUND', 'Serviço não encontrado.');
+          Object.assign(service, input, {
+            name: input.name.trim(),
+            updatedAt: new Date().toISOString(),
+          });
+          return service;
+        });
+      },
+      async setActive(establishmentId, serviceId, active) {
+        return database.write((state) => {
+          requireEstablishment(state, establishmentId);
+          const service = state.services.find(
+            (item) => item.id === serviceId && item.establishmentId === establishmentId,
+          );
+          if (!service) throw new AppError('NOT_FOUND', 'Serviço não encontrado.');
+          service.active = active;
+          service.updatedAt = new Date().toISOString();
+          return service;
+        });
+      },
+    },
+    reservations: {
+      async list(establishmentId, filters: ReservationFilters = {}) {
+        return database.read((state) => {
+          const establishment = requireEstablishment(state, establishmentId);
+          const today = getTodayInTimeZone(establishment.timeZone);
+          const period = filters.period ?? 'ALL';
+          const status = filters.status ?? 'ALL';
+          const page = filters.page ?? 1;
+          const pageSize = filters.pageSize ?? 30;
+          const matchesPeriod = (reservation: Reservation) => {
+            if (period === 'TODAY') return reservation.serviceDate === today;
+            if (period === 'UPCOMING') return reservation.serviceDate > today;
+            if (period === 'HISTORY') return reservation.serviceDate < today;
+            if (period === 'DATE') return reservation.serviceDate === filters.date;
+            return true;
+          };
+          const items = state.reservations
+            .filter(
+              (reservation) =>
+                reservation.establishmentId === establishmentId &&
+                matchesPeriod(reservation) &&
+                matchesStatus(reservation.status, status),
+            )
+            .sort(
+              (a, b) =>
+                a.serviceDate.localeCompare(b.serviceDate) ||
+                a.createdAt.localeCompare(b.createdAt),
+            );
+          const start = (page - 1) * pageSize;
+          return {
+            items: items.slice(start, start + pageSize),
+            total: items.length,
+            page,
+            pageSize,
+          };
+        });
+      },
+      async getById(establishmentId, reservationId) {
+        return database.read((state) => {
+          requireEstablishment(state, establishmentId);
+          const reservation = state.reservations.find(
+            (item) => item.id === reservationId && item.establishmentId === establishmentId,
+          );
+          if (!reservation) throw new AppError('NOT_FOUND', 'Reserva não encontrada.');
+          return reservation;
+        });
+      },
+      async performAction(establishmentId, reservationId, action) {
+        return database.write((state) => {
+          const establishment = requireEstablishment(state, establishmentId);
+          const index = state.reservations.findIndex(
+            (item) => item.id === reservationId && item.establishmentId === establishmentId,
+          );
+          if (index < 0) throw new AppError('NOT_FOUND', 'Reserva não encontrada.');
+          try {
+            const updated = transitionReservation(
+              state.reservations[index]!,
+              action,
+              getTodayInTimeZone(establishment.timeZone),
+            );
+            state.reservations[index] = updated;
+            return updated;
+          } catch (error) {
+            throw new AppError(
+              'INVALID_TRANSITION',
+              error instanceof Error ? error.message : 'Transição inválida.',
+            );
+          }
+        });
+      },
+    },
+    schedule: {
+      async getRange(establishmentId, startDate, days) {
+        return database.read((state) => {
+          requireEstablishment(state, establishmentId);
+          return Array.from({ length: days }, (_, index) =>
+            getDaySchedule(state, establishmentId, addCalendarDays(startDate, index)),
+          );
+        });
+      },
+      async getDay(establishmentId, date) {
+        return database.read((state) => getDaySchedule(state, establishmentId, date));
+      },
+      async createPeriod(establishmentId, input) {
+        return database.write((state) => {
+          const establishment = requireEstablishment(state, establishmentId);
+          const days = getSchedulePeriod(input, getTodayInTimeZone(establishment.timeZone));
+          for (const day of days) {
+            if (
+              day.open &&
+              (!day.serviceIds.length ||
+                day.serviceIds.some(
+                  (id) =>
+                    !state.services.some(
+                      (service) =>
+                        service.id === id &&
+                        service.establishmentId === establishmentId &&
+                        service.active,
+                    ),
+                ))
+            ) {
+              throw new AppError(
+                'VALIDATION',
+                'Selecione pelo menos um serviço ativo para cada dia aberto.',
+              );
+            }
+            if (
+              state.scheduleDays.some(
+                (item) => item.establishmentId === establishmentId && item.date === day.date,
+              )
+            ) {
+              throw new AppError(
+                'VALIDATION',
+                `Já existe uma agenda personalizada em ${day.date}. Escolha outro período.`,
+              );
+            }
+            const consumed = state.reservations.filter(
+              (reservation) =>
+                reservation.establishmentId === establishmentId &&
+                reservation.serviceDate === day.date &&
+                isCapacityConsuming(reservation.status),
+            ).length;
+            if ((!day.open && consumed > 0) || day.capacity < consumed) {
+              throw new AppError(
+                'CAPACITY_CONFLICT',
+                `A configuração conflita com ${consumed} reserva(s) em ${day.date}. Mantenha o dia aberto e informe pelo menos ${consumed} vagas.`,
+              );
+            }
+          }
+          const createdAt = new Date().toISOString();
+          state.scheduleDays.push(...days.map((day) => ({ ...day, establishmentId, createdAt })));
+          return days.map((day) => getDaySchedule(state, establishmentId, day.date));
+        });
+      },
+    },
+    dashboard: {
+      async getSummary(establishmentId, date) {
+        return database.read((state) => {
+          requireEstablishment(state, establishmentId);
+          const day = getDaySchedule(state, establishmentId, date);
+          const pendingReservations = state.reservations
+            .filter(
+              (reservation) =>
+                reservation.establishmentId === establishmentId && reservation.status === 'PENDING',
+            )
+            .sort((a, b) => a.serviceDate.localeCompare(b.serviceDate));
+          const upcomingReservations = state.reservations
+            .filter(
+              (reservation) =>
+                reservation.establishmentId === establishmentId &&
+                reservation.status === 'CONFIRMED' &&
+                reservation.serviceDate > date,
+            )
+            .sort((a, b) => a.serviceDate.localeCompare(b.serviceDate))
+            .slice(0, 4);
+          return {
+            date,
+            capacity: day.capacity,
+            pendingReservations,
+            confirmedReservations: day.reservations.filter((item) => item.status === 'CONFIRMED'),
+            upcomingReservations,
+            activeServiceCount: state.services.filter(
+              (service) => service.establishmentId === establishmentId && service.active,
+            ).length,
+          };
+        });
+      },
+    },
+  };
+}

@@ -1,3 +1,4 @@
+import { isSharedMode } from '@/data/repositories';
 import { useEffect, useState, useSyncExternalStore } from 'react';
 import { useIsMutating } from '@tanstack/react-query';
 import { useLocation } from 'react-router';
@@ -125,10 +126,20 @@ export function PwaControls() {
     (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
   return (
     <aside className={styles.controls} aria-label="Aplicativo e conexão">
-      {!online && <p role="status">Sem internet. Você pode continuar usando os dados locais.</p>}
+      {!online && (
+        <p role="status">
+          {isSharedMode
+            ? 'Sem internet. Conecte-se para consultar vagas e salvar alterações.'
+            : 'Sem internet. Você pode continuar usando os dados locais.'}
+        </p>
+      )}
       {offlineReady && !dismissedOffline && (
         <div role="status" className={styles.notice}>
-          <span>Pronto para usar sem internet.</span>
+          <span>
+            {isSharedMode
+              ? 'Interface preparada para acesso rápido. Consultas e reservas precisam de internet.'
+              : 'Pronto para usar sem internet.'}
+          </span>
           <button
             type="button"
             onClick={() => {

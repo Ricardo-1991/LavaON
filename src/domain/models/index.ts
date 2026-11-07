@@ -77,6 +77,20 @@ export interface OperatingDay {
   capacity: number;
 }
 
+export interface ScheduleDay {
+  establishmentId: Id;
+  date: CalendarDate;
+  open: boolean;
+  capacity: number;
+  serviceIds: Id[];
+  createdAt: IsoTimestamp;
+}
+
+export interface SchedulePeriodInput {
+  startDate: CalendarDate;
+  days: { open: boolean; capacity: number; serviceIds: Id[] }[];
+}
+
 export interface ReservationSnapshot {
   customerName: string;
   customerPhone: string;
@@ -144,6 +158,7 @@ export interface PaginatedResult<T> {
 export interface DaySchedule {
   capacity: DailyCapacity;
   reservations: Reservation[];
+  configuration: ScheduleDay | null;
 }
 
 export interface DashboardSummary {
@@ -171,4 +186,26 @@ export interface ServiceInput {
 export interface SignUpInput {
   name: string;
   email: string;
+  password?: string;
+}
+
+export interface PublicSchedule {
+  establishment: Pick<Establishment, 'id' | 'name' | 'phone' | 'address'>;
+  days: { date: CalendarDate; available: number; capacity: number; services: Service[] }[];
+}
+export interface PublicBookingInput {
+  date: CalendarDate;
+  serviceId: Id;
+  customerName: string;
+  customerPhone: string;
+  vehicleDescription: string;
+  vehiclePlate: string;
+  requestId: string;
+}
+export interface BookingReceipt {
+  id: Id;
+  serviceDate: CalendarDate;
+  serviceName: string;
+  priceInCents: number;
+  status: 'PENDING';
 }

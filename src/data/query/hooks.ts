@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { repositories } from '@/data/repositories/mock-repositories';
+import { repositories, isSharedMode } from '@/data/repositories';
 import type {
   CalendarDate,
   EstablishmentInput,
@@ -8,6 +8,7 @@ import type {
   ReservationAction,
   ReservationFilters,
   ServiceInput,
+  SchedulePeriodInput,
 } from '@/domain/models';
 import { useActiveEstablishmentId } from '@/providers/session-provider';
 
@@ -111,6 +112,7 @@ export function useReservations(filters: ReservationFilters) {
   return useQuery({
     queryKey: [...queryKeys.reservations(id), filters],
     queryFn: () => repositories.reservations.list(id, filters),
+    refetchInterval: isSharedMode ? 15000 : false,
   });
 }
 
@@ -145,6 +147,7 @@ export function useSchedule(startDate: CalendarDate, days = 30) {
   return useQuery({
     queryKey: [...queryKeys.schedule(id), startDate, days],
     queryFn: () => repositories.schedule.getRange(id, startDate, days),
+    refetchInterval: isSharedMode ? 15000 : false,
   });
 }
 
@@ -153,7 +156,22 @@ export function useDaySchedule(date?: CalendarDate) {
   return useQuery({
     queryKey: [...queryKeys.schedule(id), 'day', date ?? ''],
     queryFn: () => repositories.schedule.getDay(id, date!),
+    refetchInterval: isSharedMode ? 15000 : false,
     enabled: Boolean(date),
+  });
+}
+
+export function useCreateSchedulePeriod() {
+  const id = useActiveEstablishmentId();
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (input: SchedulePeriodInput) => repositories.schedule.createPeriod(id, input),
+    onSuccess: async () => {
+      await Promise.all([
+        client.invalidateQueries({ queryKey: queryKeys.schedule(id) }),
+        client.invalidateQueries({ queryKey: queryKeys.dashboard(id) }),
+      ]);
+    },
   });
 }
 
@@ -162,5 +180,6 @@ export function useDashboard(date: CalendarDate) {
   return useQuery({
     queryKey: [...queryKeys.dashboard(id), date],
     queryFn: () => repositories.dashboard.getSummary(id, date),
+    refetchInterval: isSharedMode ? 15000 : false,
   });
 }

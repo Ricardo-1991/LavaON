@@ -1,3 +1,4 @@
+import { isSharedMode } from '@/data/repositories';
 import styles from './login-screen.module.css';
 import { cx } from '@/shared/ui/classes';
 import { showDialog } from '@/shared/ui/dialog';
@@ -15,7 +16,13 @@ import { Button, Input } from '@/shared/ui';
 
 const schema = z.object({
   email: z.email('Informe um e-mail válido.'),
-  password: z.string().min(4, 'Informe ao menos 4 caracteres.'),
+  password: z
+    .string()
+    .min(
+      isSharedMode ? 8 : 4,
+      isSharedMode ? 'Informe ao menos 8 caracteres.' : 'Informe ao menos 4 caracteres.',
+    )
+    .max(128),
 });
 type FormData = z.infer<typeof schema>;
 
@@ -28,11 +35,13 @@ export default function LoginScreen() {
     formState: { errors, isSubmitting },
   } = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: { email: 'joao@lavaon.com.br', password: 'demo' },
+    defaultValues: isSharedMode
+      ? { email: '', password: '' }
+      : { email: 'joao@lavaon.com.br', password: 'demo' },
   });
-  const submit = handleSubmit(async ({ email }) => {
+  const submit = handleSubmit(async ({ email, password }) => {
     try {
-      await signIn(email);
+      await signIn(email, password);
       router.replace('/');
     } catch (error) {
       showDialog('Não foi possível entrar', getErrorMessage(error));
@@ -74,9 +83,11 @@ export default function LoginScreen() {
         Esqueci minha senha
       </Link>
       <Button title="Entrar" onClick={submit} loading={isSubmitting} />
-      <span className={cx(styles.demo)}>
-        Conta de demonstração já preenchida. A senha ainda é apenas visual.
-      </span>
+      {!isSharedMode && (
+        <span className={cx(styles.demo)}>
+          Conta de demonstração já preenchida. A senha ainda é apenas visual.
+        </span>
+      )}
       <span className={cx(styles.footer)}>
         Ainda não tem conta?{' '}
         <Link to="/sign-up" className={cx(styles.link)}>

@@ -7,7 +7,7 @@ import { Controller, useForm } from 'react-hook-form';
 
 import { z } from 'zod';
 
-import { repositories } from '@/data/repositories/mock-repositories';
+import { repositories, isSharedMode } from '@/data/repositories';
 import { getErrorMessage } from '@/domain/errors';
 import { AuthShell } from '@/features/auth/components/auth-shell';
 
@@ -33,7 +33,11 @@ export default function ForgotPasswordScreen() {
   return (
     <AuthShell
       title="Recupere seu acesso"
-      subtitle="Nesta versão, simulamos o envio das instruções."
+      subtitle={
+        isSharedMode
+          ? 'A recuperação por e-mail ainda não está disponível. Contate o responsável pelo Lava On.'
+          : 'Nesta versão, simulamos o envio das instruções.'
+      }
     >
       <Controller
         control={control}
@@ -49,7 +53,12 @@ export default function ForgotPasswordScreen() {
           />
         )}
       />
-      <Button title="Solicitar recuperação" onClick={submit} loading={isSubmitting} />
+      <Button
+        title="Solicitar recuperação"
+        disabled={isSharedMode}
+        onClick={submit}
+        loading={isSubmitting}
+      />
       <Link to="/login" className={cx(styles.link)}>
         Voltar para o login
       </Link>

@@ -10,6 +10,8 @@ test('restaura sessão, mantém todas as telas responsivas e trata acessos diret
   const routes = [
     '/',
     '/schedule',
+    '/schedule/new',
+    '/schedule/new-week',
     '/reservations',
     '/settings',
     '/services',

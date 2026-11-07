@@ -1,3 +1,4 @@
+import { isSharedMode } from '@/data/repositories';
 import styles from './sign-up-screen.module.css';
 import { cx } from '@/shared/ui/classes';
 import { showDialog } from '@/shared/ui/dialog';
@@ -16,7 +17,13 @@ import { Button, Input } from '@/shared/ui';
 const schema = z.object({
   name: z.string().trim().min(3, 'Informe seu nome.'),
   email: z.email('Informe um e-mail válido.'),
-  password: z.string().min(4, 'Informe ao menos 4 caracteres.'),
+  password: z
+    .string()
+    .min(
+      isSharedMode ? 8 : 4,
+      isSharedMode ? 'Use pelo menos 8 caracteres.' : 'Informe ao menos 4 caracteres.',
+    )
+    .max(128),
 });
 type FormData = z.infer<typeof schema>;
 
@@ -31,9 +38,9 @@ export default function SignUpScreen() {
     resolver: zodResolver(schema),
     defaultValues: { name: '', email: '', password: '' },
   });
-  const submit = handleSubmit(async ({ name, email }) => {
+  const submit = handleSubmit(async ({ name, email, password }) => {
     try {
-      await signUp({ name, email });
+      await signUp({ name, email, password });
       router.replace('/');
     } catch (error) {
       showDialog('Não foi possível criar a conta', getErrorMessage(error));

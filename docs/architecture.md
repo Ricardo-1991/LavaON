@@ -1,41 +1,44 @@
 # Arquitetura do Lava On Web
 
-O Lava On usa React DOM 19.2, TypeScript, Vite, React Router e CSS Modules. A interface foi convertida de React Native/Expo preservando os fluxos do proprietário e os tokens visuais. O software atende navegadores modernos em Android, iOS/iPadOS, Windows, macOS e Linux; instalação como PWA depende dos recursos do navegador e o acesso por link continua disponível.
+O Lava On usa React DOM, TypeScript, Vite, React Router e CSS Modules. A migração preserva as telas e os tokens visuais do aplicativo Expo, com layout de 320 até 480 px, centralizado em telas maiores. Há suporte a toque, mouse, teclado, áreas seguras e instalação opcional em navegadores modernos.
 
 ## Organização
 
-As telas usam hooks de aplicação e contratos de repositório. O domínio não depende da plataforma de interface. React Hook Form e Zod mantêm as validações; TanStack Query mantém consultas e invalidações. Consultas e mutações usam `networkMode: 'always'`, pois não precisam de rede. O gerenciamento de foco utiliza o comportamento web do TanStack Query.
+Telas usam React Hook Form, Zod e hooks TanStack Query. Contratos de repositório e regras de domínio são compartilhados entre dois adaptadores: demonstração IndexedDB e API HTTP com PostgreSQL. `src/data/repositories/index.ts` seleciona o modo explicitamente no build por `VITE_DATA_MODE=server`. Falhas no servidor não mudam o modo nem criam dados demonstrativos silenciosamente.
 
-React Router preserva as URLs de acesso, agenda, reservas, serviços e ajustes. A configuração inicial usa `/onboarding`. A restauração da sessão antecede os redirecionamentos. Erros de acesso ao armazenamento aparecem com opção de tentar novamente. Rotas de negócio exigem sessão e estabelecimento; links diretos de detalhes têm retorno à listagem quando não há histórico interno. A proteção é parte da demonstração, sem segurança de autenticação de servidor.
+React Router protege telas privadas após restaurar a sessão. Erros de restauração oferecem nova tentativa. A rota `/book/:establishmentId` permanece acessível sem sessão do proprietário e independentemente de falhas ao restaurá-la. `/schedule/new` e `/schedule/new-week` criam disponibilidade datada.
 
-Componentes compartilhados usam HTML, formulários, rótulos, botões, controles de switch e diálogos nativos acessíveis. A navegação permite teclado, toque e mouse. O layout ocupa a largura disponível a partir de 320 px, com limite de 480 px. Áreas seguras, altura dinâmica e teclado virtual são considerados. Ícones do Ionicons são SVGs locais; os ícones instaláveis derivam da gota e da cor já utilizadas na tela de acesso.
+Consultas locais usam `networkMode: 'always'`. Operações HTTP também tentam imediatamente e apresentam falhas de conexão, sem manter gravações pendentes em uma fila offline. Consultas de agenda e reservas compartilhadas são revalidadas periodicamente.
 
-## Persistência
+## Persistência local
 
-O banco `lava-on-demo`, versão IndexedDB 1, contém a object store `state` e a chave `database`. O payload mantém `MockDatabaseState` com `schemaVersion: 1`. Na ausência da chave, o banco recebe os mesmos exemplos comerciais do aplicativo anterior, com datas relativas ao dia atual.
+O banco IndexedDB `lava-on-demo` mantém versão 1, store `state`, chave `database` e documento com `schemaVersion: 1`. Ao faltar a chave, recebe exemplos comerciais com datas relativas. A extensão `scheduleDays` é aditiva; não substitui contas e reservas existentes.
 
-Cada operação lê o estado persistido. Gravações fazem leitura, validação e alteração dentro de uma única transação `readwrite`, evitando que duas abas sobrescrevam alterações concorrentes com um estado antigo. A promessa resolve após o commit. Exceções abortam a transação e preservam o estado anterior. Dados incompatíveis geram erro e não são substituídos por novos exemplos.
+Cada gravação lê, valida e modifica o documento dentro de uma transação `readwrite`. A promessa só resolve após commit; falhas abortam a transação e preservam dados anteriores. Payload incompatível é exibido como erro e nunca substituído automaticamente.
 
-Os contratos de repositório não mudaram e não existe API HTTP. Cada operação comercial continua validando o vínculo com o estabelecimento. Uma futura implementação HTTP pode cumprir os mesmos contratos.
+A sessão e a senha desse modo continuam simuladas. Cadastros ficam no navegador daquela origem e não são importados para o servidor.
 
-## Regras preservadas
+## Persistência compartilhada
 
-- Uma reserva representa um veículo, um serviço e uma unidade de capacidade diária.
+A função Node.js `api/app.ts` delega ao servidor, autentica o proprietário e valida uma lista fechada de operações. Credenciais e sessão ficam fora do documento comercial. PostgreSQL armazena um documento versionado por proprietário e tabelas auxiliares de sessão, links, idempotência e limites de tentativas. As mesmas regras e a mesma fábrica de repositórios executam sobre o estado lido na transação PostgreSQL.
+
+Toda alteração bloqueia a linha comercial do proprietário até o commit, incluindo reservas públicas. Isso impede que pedidos simultâneos ultrapassem a capacidade. Não há importação dos exemplos locais ou acesso privado com e-mail sem senha. O modelo de dados, limites e regras de acesso são detalhados em [shared-booking.md](shared-booking.md).
+
+## Regras
+
+- Uma reserva representa um veículo, um serviço e uma vaga diária, compartilhada entre os serviços oferecidos naquele dia.
 - Pendentes, confirmadas e concluídas consomem capacidade; canceladas, recusadas e faltas não consomem.
-- Reservas futuras não podem ser concluídas nem marcadas como falta.
-- Pendências antigas não podem ser aceitas.
-- Alterações de funcionamento não podem invalidar reservas que ainda consomem capacidade.
-- Valores monetários ficam em centavos; datas de atendimento usam `YYYY-MM-DD`.
-- O fuso padrão do estabelecimento é `America/Sao_Paulo`.
+- Reservas futuras não podem ser concluídas nem marcadas como falta; pendências antigas não podem ser aceitas.
+- Funcionamento semanal não pode invalidar reservas existentes e não altera capacidades datadas.
+- O proprietário publica um dia ou sete dias consecutivos, com vagas e serviços por data. Datas abertas precisam de serviços ativos do estabelecimento.
+- A criação do período é atômica; datas duplicadas ou capacidade insuficiente rejeitam a operação inteira.
+- A página pública só oferece datas explicitamente publicadas, abertas e não passadas.
+- Valores ficam em centavos; datas usam `YYYY-MM-DD`; o fuso padrão é `America/Sao_Paulo`.
 
 ## PWA
 
-`vite-plugin-pwa` gera manifest e service worker com Workbox. Todas as telas são empacotadas e seus recursos entram no precache. Navegações offline retornam `index.html`, permitindo abrir rotas ainda não visitadas. `clientsClaim` controla o primeiro carregamento após ativação; atualizações posteriores aguardam uma ação explícita.
+`vite-plugin-pwa` gera manifest e service worker com Workbox. Todas as telas entram no precache. Navegações offline retornam `index.html`; `/api/` é excluído. Atualizações aguardam ação explícita e podem ser adiadas.
 
-A interface informa preparação offline, conexão e novas versões. Atualizações ficam bloqueadas durante operações de gravação e mutações; campos alterados exigem confirmação de descarte. O estado de edição é marcado por eventos de formulário e mudanças de categoria. Transações salvas e mudanças de tela limpam esse estado. A tentativa de fechar/recarregar a página também usa o aviso padrão do navegador quando há edição ou gravação pendente.
+A interface informa conexão e disponibilidade offline conforme o modo. Atualizações ficam bloqueadas durante transações IndexedDB e chamadas HTTP de gravação. Formulários do proprietário e do cliente marcam alterações não salvas; a recarga exige confirmação. A limpeza de caches antigos não limpa IndexedDB nem o banco PostgreSQL.
 
-Os dados permanecem no IndexedDB; limpar caches antigos da PWA não limpa o banco. Não existe sincronização ou migração de dados do AsyncStorage. Publicar sob outra origem cria outro armazenamento local.
-
-## Limites
-
-Esta etapa não inclui backend, autenticação real, banco remoto, página pública, pagamentos, horários, funcionários, boxes ou notificações. O armazenamento contém dados demonstrativos e os dispositivos não compartilham cadastros.
+A demonstração local permanece funcional offline. No modo compartilhado, somente os recursos da interface são armazenados; sessão, consultas e gravações precisam de internet. Recuperação de senha por e-mail, pagamentos, notificações e horários individuais permanecem fora desta etapa.
