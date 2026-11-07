@@ -7,6 +7,7 @@ import { ReservationCard } from '@/features/reservations/components/reservation-
 import { CapacitySummary } from '@/features/schedule/components/capacity-summary';
 import {
   EmptyState,
+  Button,
   ErrorState,
   LoadingState,
   ScreenContainer,
@@ -33,8 +34,16 @@ export default function DayDetailScreen() {
         <span className={cx(uiStyles.muted)}>
           {query.data.capacity.open ? 'Dia aberto para atendimento' : 'Estabelecimento fechado'}
         </span>
+        {query.data.configuration && (
+          <span className={uiStyles.caption}>Disponibilidade personalizada para esta data.</span>
+        )}
       </div>
       <CapacitySummary capacity={query.data.capacity} />
+      <Button
+        title="Ver na agenda"
+        variant="secondary"
+        onClick={() => router.replace({ pathname: '/schedule', params: { start: date } })}
+      />
       <SectionHeader title={`Reservas (${query.data.reservations.length})`} />
       {query.data.reservations.length ? (
         query.data.reservations.map((reservation) => (

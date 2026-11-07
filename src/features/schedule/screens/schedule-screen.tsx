@@ -1,6 +1,7 @@
+import { ShareSchedule } from '../components/share-schedule';
 import styles from './schedule-screen.module.css';
 import { cx } from '@/shared/ui/classes';
-import { useAppNavigation } from '@/app/navigation';
+import { useAppNavigation, useRouteParams } from '@/app/navigation';
 import { useState } from 'react';
 
 import { useEstablishment, useSchedule } from '@/data/query/hooks';
@@ -12,23 +13,70 @@ import {
   EmptyState,
   ErrorState,
   LoadingState,
+  Input,
   ScreenContainer,
   uiStyles,
 } from '@/shared/ui';
-import { formatCalendarDate } from '@/shared/utils/format';
+import { formatCalendarDate, formatShortDate, isCalendarDate } from '@/shared/utils/format';
 
 export default function ScheduleScreen() {
   const router = useAppNavigation();
   const [days, setDays] = useState(30);
   const establishment = useEstablishment();
   const today = getTodayInTimeZone(establishment.data?.timeZone ?? 'America/Sao_Paulo');
-  const query = useSchedule(today, days);
+  const params = useRouteParams<{ start?: string }>();
+  const startDate = params.start && isCalendarDate(params.start) ? params.start : today;
+  const query = useSchedule(startDate, days);
   return (
     <ScreenContainer>
       <div className={cx('stack')}>
         <span className={cx(uiStyles.title)}>Agenda</span>
-        <span className={cx(uiStyles.muted)}>Capacidade diária dos próximos {days} dias.</span>
+        <span className={cx(uiStyles.muted)}>
+          {startDate === today
+            ? `Capacidade diária dos próximos ${days} dias.`
+            : `Capacidade diária a partir de ${formatShortDate(startDate)}.`}
+        </span>
       </div>
+      <div className={styles.actions}>
+        <Button
+          title="Novo dia"
+          icon="add"
+          onClick={() =>
+            router.push({
+              pathname: '/schedule/new',
+              params: { date: startDate < today ? today : startDate },
+            })
+          }
+        />
+        <Button
+          title="Nova semana"
+          icon="calendar-outline"
+          variant="secondary"
+          onClick={() =>
+            router.push({
+              pathname: '/schedule/new-week',
+              params: { date: startDate < today ? today : startDate },
+            })
+          }
+        />
+      </div>
+      <ShareSchedule />
+      <Input
+        label="Exibir a partir de"
+        type="date"
+        value={startDate}
+        onChangeText={(date) => {
+          if (isCalendarDate(date))
+            router.replace({ pathname: '/schedule', params: { start: date } });
+        }}
+      />
+      {startDate !== today && (
+        <Button
+          title="Voltar para hoje"
+          variant="ghost"
+          onClick={() => router.replace('/schedule')}
+        />
+      )}
       {query.isLoading ? (
         <LoadingState />
       ) : query.error ? (
@@ -49,6 +97,11 @@ export default function ScheduleScreen() {
                 <span className={cx(styles.date)}>
                   {formatCalendarDate(day.capacity.date, 'dd/MM')}
                 </span>
+                {day.configuration && (
+                  <span className={styles.customized}>
+                    {day.configuration.open ? 'Publicado' : 'Fechado'}
+                  </span>
+                )}
               </div>
               <div className={cx('stack', styles.numbers)}>
                 <span className={cx(styles.available)}>
@@ -66,8 +119,9 @@ export default function ScheduleScreen() {
           ))}
           <Button
             title="Mostrar mais 30 dias"
+            disabled={days >= 366}
             variant="secondary"
-            onClick={() => setDays((value) => value + 30)}
+            onClick={() => setDays((value) => Math.min(366, value + 30))}
           />
         </>
       ) : (

@@ -18,5 +18,14 @@
       "@/*": ["./src/*"]
     }
   },
-  "include": ["src", "tests", "vite.config.ts", "playwright.config.ts"]
+  "include": [
+    "src",
+    "server",
+    "api",
+    "tests",
+    "vite.config.ts",
+    "playwright.config.ts",
+    "vitest.server.config.ts",
+    "playwright.shared.config.ts"
+  ]
 }

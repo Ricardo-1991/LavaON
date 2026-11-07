@@ -1,14 +1,14 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
-import { repositories } from '@/data/repositories/mock-repositories';
+import { repositories } from '@/data/repositories';
 import type { Session, SignUpInput } from '@/domain/models';
 
 interface SessionContextValue {
   session: Session | null;
   ready: boolean;
   error: string | null;
-  signIn(email: string): Promise<void>;
+  signIn(email: string, password?: string): Promise<void>;
   signUp(input: SignUpInput): Promise<void>;
   signOut(): Promise<void>;
   refreshSession(): Promise<void>;
@@ -60,8 +60,8 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       session,
       ready,
       error,
-      async signIn(email) {
-        setSession(await repositories.auth.signIn(email));
+      async signIn(email, password) {
+        setSession(await repositories.auth.signIn(email, password));
         queryClient.clear();
       },
       async signUp(input) {

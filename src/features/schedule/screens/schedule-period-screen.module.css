@@ -1,0 +1,76 @@
+.fields {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.day {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 70px;
+}
+.identity {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  gap: 4px;
+}
+.dayName {
+  font-size: 15px;
+  line-height: 21px;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+.capacity {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: #65718a;
+}
+.capacityInput {
+  width: 64px;
+  min-height: 44px;
+  border: 1px solid #dce2ea;
+  border-radius: 8px;
+  padding: 8px;
+  background: #fff;
+  color: #14213d;
+  text-align: center;
+  font-size: 16px;
+}
+
+.daySection + .daySection {
+  border-top: 1px solid #dce2ea;
+  padding-top: 12px;
+}
+.services {
+  border: 0;
+  margin: 0;
+  padding: 0 0 12px;
+  min-width: 0;
+}
+.services legend {
+  color: #65718a;
+  font-size: 13px;
+  padding: 0 0 6px;
+}
+.service {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  font-size: 14px;
+  line-height: 20px;
+}
+.service input {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  accent-color: #0b5fff;
+}

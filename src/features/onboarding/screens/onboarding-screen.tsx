@@ -9,7 +9,7 @@ import { Controller, useForm } from 'react-hook-form';
 
 import { z } from 'zod';
 
-import { repositories } from '@/data/repositories/mock-repositories';
+import { repositories } from '@/data/repositories';
 import { getErrorMessage } from '@/domain/errors';
 import type { OperatingDay } from '@/domain/models';
 import { useSession } from '@/providers/session-provider';

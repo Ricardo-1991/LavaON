@@ -31,3 +31,27 @@ O endereço público [https://lava-on.vercel.app](https://lava-on.vercel.app) fo
 ## Conferência física pendente
 
 Nenhum aparelho físico está conectado a este ambiente. Antes de disponibilizar ao cliente, conferir Android, iPhone/iPad e computador: instalação pelo navegador, modo independente, teclado virtual, áreas seguras, orientação horizontal, modo avião e encerramento/reabertura. A automação em WebKit não equivale a um teste real do Safari no iOS.
+
+## Agenda compartilhada — 06/11/2026
+
+A abertura de dia/semana inclui capacidade e serviços por data, publicação por link e reserva pendente sem login de cliente. O servidor usa PostgreSQL e autenticação do proprietário com senha. O banco de testes é PostgreSQL 17 em container local, separado de qualquer banco publicado.
+
+- Vitest local: 40 testes aprovados, incluindo regras de capacidade, IndexedDB, sessão, validação de períodos, isolamento e proteção de formulário/gravação HTTP.
+- PostgreSQL: 9 testes de integração aprovados. Vinte solicitações simultâneas para duas vagas geraram exatamente duas reservas. Reenvios simultâneos com a mesma chave geraram um único protocolo. Aprovação não duplicou ocupação; recusa e cancelamento liberaram vagas. Serviços/datas inválidos e acessos privados de outro proprietário foram rejeitados.
+- Persistência compartilhada: reserva preservada após nova migração e novo login; criação de período conflitante revertida integralmente.
+- Playwright da demonstração: 25 testes aprovados e 2 omissões intencionais da atualização em Firefox/WebKit. As novas rotas de criação também foram conferidas em 320/768/1440 px.
+- Playwright compartilhado: fluxo completo aprovado em Chromium, Firefox e WebKit. Cadastro, onboarding, serviços, abertura de semana com serviços diferentes, link público em contexto separado, bloqueio sem conexão, solicitação pendente, recusa/liberação e criação de dia avulso.
+- Capturas adicionais em `visual-reference/shared/`: formulário de semana em 320 px e página pública em 320/768/1440 px. A interface conserva cores, cartões, tipografia e o limite de largura existente.
+- Typecheck, lint e formatação aprovados. Builds local e de prévia Vercel gerados. A função ESM da Vercel usa imports explícitos e Node.js 24 LTS; sua inicialização na prévia foi verificada e retorna a mensagem esperada de banco ainda não conectado.
+
+Após a autorização do titular, o PostgreSQL Neon gratuito (`lava-on-postgres`, região `gru1`) foi conectado ao projeto. A migração aditiva foi aplicada e a versão compartilhada publicada em [https://lava-on.vercel.app](https://lava-on.vercel.app), deployment `dpl_3uUf2WuB5mktvDm6pVsqENeGbozr`, com Node.js 24 LTS. A API pública respondeu HTTP 200 sem login Vercel e com `Cache-Control: private, no-store`. Não foi feita validação física em Android/iPhone/iPad.
+
+### Conferência em produção — 06/11/2026
+
+O fluxo foi executado no endereço público, sem credenciais Vercel, com uma conta sintética exclusiva. Passaram cadastro, autenticação, onboarding, serviços, publicação da semana com capacidade e serviços por data, acesso anônimo pelo link, envio por Enter, pendência ocupando vaga e recusa liberando a vaga. Cinco solicitações simultâneas para duas vagas no Neon/Vercel geraram exatamente duas reservas e três respostas de capacidade esgotada.
+
+Um novo login em Firefox/desktop recuperou os mesmos cadastros e reservas. O link público também foi conferido em WebKit com toque. Passaram cookies HttpOnly/Secure/SameSite, bloqueio de consultas privadas sem sessão, ausência de dados pessoais de clientes na disponibilidade pública, cache de API, manifest e resposta 404 para endpoints/assets ausentes. Não houve erros JavaScript.
+
+Firefox e WebKit utilizaram `ignoreHTTPSErrors` exclusivamente no teste remoto por causa da confiança de certificados do ambiente de automação. Chromium e a consulta HTTP nativa acessaram o HTTPS normalmente. Isso não modifica o aplicativo nem a configuração de certificados publicada.
+
+A limpeza executada em `finally` verificou a conta sintética por e-mail exclusivo, senha aleatória e data de criação antes de removê-la com seus serviços, agenda, sessões e reservas. A remoção foi confirmada; os cadastros de outros proprietários não foram alterados. As credenciais de produção utilizadas na migração/conferência ficaram em arquivo temporário protegido, removido após concluir o trabalho.

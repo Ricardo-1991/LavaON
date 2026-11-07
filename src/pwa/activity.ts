@@ -19,7 +19,7 @@ export function hasUnsavedChanges() {
 }
 export function markFormDirty() {
   if (
-    /^\/(onboarding|services\/(new|[^/]+)|settings\/(account|establishment|operating))\/?$/.test(
+    /^\/(book\/[^/]+|onboarding|schedule\/(new|new-week)|services\/(new|[^/]+)|settings\/(account|establishment|operating))\/?$/.test(
       window.location.pathname,
     )
   ) {

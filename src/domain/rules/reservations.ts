@@ -5,7 +5,7 @@ import type {
   Reservation,
   ReservationAction,
   ReservationStatus,
-} from '@/domain/models';
+} from '../models/index.js';
 
 export const RESERVATION_STATUS_META: Record<
   ReservationStatus,

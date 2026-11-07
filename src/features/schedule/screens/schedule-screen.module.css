@@ -11,6 +11,23 @@
   border-radius: 12px;
 }
 
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.actions > button {
+  flex: 1;
+}
+
+.customized {
+  margin-top: 4px;
+  font-size: 11px;
+  line-height: 15px;
+  color: #0b5fff;
+}
+
 .dayDate {
   width: 92px;
 }

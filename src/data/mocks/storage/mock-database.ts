@@ -6,7 +6,6 @@ import type {
   Customer,
   Establishment,
   EstablishmentMembership,
-  OperatingDay,
   Owner,
   Reservation,
   Service,
@@ -14,22 +13,12 @@ import type {
 } from '@/domain/models';
 import { getTodayInTimeZone } from '@/domain/rules/reservations';
 
+import type { ApplicationState } from '@/domain/models/state';
+export type MockDatabaseState = ApplicationState;
+
 export const DATABASE_NAME = 'lava-on-demo';
 const STORE = 'state';
 const STORAGE_KEY = 'database';
-
-export interface MockDatabaseState {
-  schemaVersion: 1;
-  sessionOwnerId: string | null;
-  owners: Owner[];
-  establishments: Establishment[];
-  memberships: EstablishmentMembership[];
-  customers: Customer[];
-  vehicles: Vehicle[];
-  services: Service[];
-  operatingDays: OperatingDay[];
-  reservations: Reservation[];
-}
 
 function relativeDate(offset: number): string {
   const today = getTodayInTimeZone('America/Sao_Paulo');
@@ -330,6 +319,7 @@ function createSeed(): MockDatabaseState {
     vehicles,
     services,
     operatingDays,
+    scheduleDays: [],
     reservations,
   };
 }
@@ -354,6 +344,7 @@ function validateState(value: unknown): MockDatabaseState {
   if (
     state.schemaVersion !== 1 ||
     collections.some((key) => !Array.isArray(state[key])) ||
+    (state.scheduleDays !== undefined && !Array.isArray(state.scheduleDays)) ||
     !(state.sessionOwnerId === null || typeof state.sessionOwnerId === 'string')
   ) {
     throw new AppError(
@@ -361,6 +352,9 @@ function validateState(value: unknown): MockDatabaseState {
       'A versão dos dados locais não é compatível. Nenhum cadastro foi apagado.',
     );
   }
+  // Additive migration: keep existing accounts, reservations and the same IndexedDB.
+  state.scheduleDays ??= [];
+  for (const day of state.scheduleDays) day.serviceIds ??= [];
   return state;
 }
 

@@ -92,6 +92,8 @@ interface InputProps {
   keyboardType?: KeyboardType;
   autoCapitalize?: 'none' | 'sentences' | 'words' | 'characters';
   multiline?: boolean;
+  type?: 'text' | 'date';
+  min?: string;
 }
 export function Input({
   label,
@@ -103,15 +105,14 @@ export function Input({
   keyboardType,
   autoCapitalize,
   multiline,
+  type: inputType,
+  min,
 }: InputProps) {
   const id = useId();
   const type = secureTextEntry
     ? 'password'
-    : keyboardType === 'email-address'
-      ? 'email'
-      : keyboardType === 'phone-pad'
-        ? 'tel'
-        : 'text';
+    : (inputType ??
+      (keyboardType === 'email-address' ? 'email' : keyboardType === 'phone-pad' ? 'tel' : 'text'));
   const inputMode =
     keyboardType === 'number-pad'
       ? 'numeric'
@@ -128,6 +129,7 @@ export function Input({
     'aria-invalid': !!error,
     'aria-describedby': error ? `${id}-error` : undefined,
     autoCapitalize,
+    min,
     autoComplete: secureTextEntry
       ? 'current-password'
       : type === 'email'
