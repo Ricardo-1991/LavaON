@@ -128,6 +128,15 @@ test('proprietário publica semana; cliente em outro navegador solicita; recusa 
     await expect(customer.getByRole('button', { name: new RegExp(shortDate(day)) })).toBeEnabled();
     await page.reload();
     await expect(page.getByText('Recusada', { exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Anonimizar dados pessoais', exact: true }).click();
+    await page.getByRole('dialog').getByRole('button', { name: 'Anonimizar', exact: true }).click();
+    await closeDialog(page);
+    await expect(page.getByText('Cliente anonimizado', { exact: true })).toBeVisible();
+    await expect(page.getByText('Cliente público', { exact: true })).toHaveCount(0);
+    await page.reload();
+    await expect(
+      page.getByText('Os dados pessoais desta reserva foram anonimizados.'),
+    ).toBeVisible();
     await page.goto('/schedule');
     await page.getByRole('button', { name: 'Novo dia', exact: true }).click();
     await page.getByLabel('Data do atendimento').fill(addCalendarDays(day, 20));
@@ -136,6 +145,23 @@ test('proprietário publica semana; cliente em outro navegador solicita; recusa 
     await expect(page.getByRole('dialog')).toContainText('Dia criado');
     await closeDialog(page);
     await expect(page.getByText('3', { exact: true }).first()).toBeVisible();
+    await page.goto('/settings/account');
+    await page.getByLabel('Senha atual', { exact: true }).fill('password-for-e2e');
+    await page.getByLabel('Nova senha', { exact: true }).fill('replacement-for-e2e');
+    await page.getByLabel('Repita a nova senha', { exact: true }).fill('replacement-for-e2e');
+    await page.getByRole('button', { name: 'Alterar senha', exact: true }).click();
+    await expect(page.getByRole('dialog')).toContainText('Senha alterada');
+    await closeDialog(page);
+    await page.getByRole('button', { name: 'Sair de todos os dispositivos', exact: true }).click();
+    await page
+      .getByRole('dialog')
+      .getByRole('button', { name: 'Encerrar acessos', exact: true })
+      .click();
+    await expect(page).toHaveURL(/\/login$/);
+    await page.getByLabel('E-mail').fill(email);
+    await page.getByLabel('Senha', { exact: true }).fill('replacement-for-e2e');
+    await page.getByRole('button', { name: 'Entrar', exact: true }).click();
+    await expect(page).toHaveURL('/');
   } finally {
     await customerContext.close();
   }

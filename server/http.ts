@@ -1,8 +1,17 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { ZodError } from 'zod';
 import { AppError } from '../src/domain/errors.js';
-import { authenticate, bookPublic, getPublicSchedule, ownerRequest } from './application.js';
+import {
+  authenticate,
+  bookPublic,
+  getPublicSchedule,
+  ownerRequest,
+  changePassword,
+} from './application.js';
+import { verifyBrowser } from './bot-protection.js';
+import { ensureDatabaseEnvironment } from './database.js';
 import { digest, rateLimit, readToken, sessionCookie } from './auth.js';
+import { credentials, registration } from './validation.js';
 
 async function readJson(request: IncomingMessage & { body?: unknown }) {
   if (request.body !== undefined) {
@@ -31,7 +40,7 @@ export async function handleRequest(
     response.end(JSON.stringify(value));
   };
   try {
-    if (!process.env.DATABASE_URL && !process.env.POSTGRES_URL)
+    if (!process.env.LAVA_DATABASE_URL && !process.env.DATABASE_URL && !process.env.POSTGRES_URL)
       return send(503, {
         code: 'PERSISTENCE',
         message:
@@ -41,7 +50,14 @@ export async function handleRequest(
     if (url.pathname !== '/api/app')
       return send(404, { code: 'NOT_FOUND', message: 'Recurso não encontrado.' });
     if (request.method === 'GET') {
+      await ensureDatabaseEnvironment();
       if (url.searchParams.get('health') === '1') return send(200, { status: 'ok' });
+      const publicIp = String(
+        request.headers['x-vercel-forwarded-for'] ?? request.socket.remoteAddress ?? 'unknown',
+      )
+        .split(',')[0]!
+        .trim();
+      await rateLimit(`availability:${publicIp}`, 120, 60);
       const establishmentId = url.searchParams.get('establishment');
       if (!establishmentId || establishmentId.length > 150)
         throw new AppError('NOT_FOUND', 'Agenda não encontrada.');
@@ -64,6 +80,7 @@ export async function handleRequest(
     const body = await readJson(request);
     if (!body || typeof body !== 'object' || Array.isArray(body))
       throw new AppError('VALIDATION', 'Solicitação inválida.');
+    await ensureDatabaseEnvironment();
     const token = readToken(request);
     const ip = String(
       request.headers['x-vercel-forwarded-for'] ??
@@ -77,24 +94,34 @@ export async function handleRequest(
     if (body.op === 'auth.signIn' || body.op === 'auth.signUp') {
       await rateLimit(`auth-ip:${ip}`, 30, 900);
       const input = Array.isArray(body.args) ? body.args[0] : null;
-      if (input && typeof input.email === 'string')
-        await rateLimit(`auth-email:${digest(input.email.trim().toLowerCase())}`, 15, 900);
-      const result = await authenticate(body.op === 'auth.signIn' ? 'signIn' : 'signUp', input);
+      await verifyBrowser(request);
+      const validated = body.op === 'auth.signUp' ? registration.parse(input) : credentials.parse(input);
+      await rateLimit(`auth-email:${digest(validated.email)}`, 15, 900);
+      const result = await authenticate(body.op === 'auth.signIn' ? 'signIn' : 'signUp', validated);
+      response.setHeader('Set-Cookie', sessionCookie(result.token, secure));
+      return send(200, { data: result.session });
+    }
+    if (body.op === 'auth.changePassword') {
+      await rateLimit(`password-ip:${ip}`, 5, 900);
+      await rateLimit(`password:${digest(token)}`, 5, 900);
+      const result = await changePassword(token, Array.isArray(body.args) ? body.args[0] : null);
       response.setHeader('Set-Cookie', sessionCookie(result.token, secure));
       return send(200, { data: result.session });
     }
     if (body.op === 'public.book') {
-      await rateLimit(`booking:${ip}`, 25, 900);
+      await rateLimit(`booking:${ip}`, 12, 900);
+      await verifyBrowser(request);
       if (
         !Array.isArray(body.args) ||
         typeof body.args[0] !== 'string' ||
         body.args[0].length > 150
       )
         throw new AppError('VALIDATION', 'Agenda inválida.');
-      return send(200, { data: await bookPublic(body.args[0], body.args[1]) });
+      return send(200, { data: await bookPublic(body.args[0], body.args[1], { ip }) });
     }
     const result = await ownerRequest(token, body);
-    if (body.op === 'auth.signOut') response.setHeader('Set-Cookie', sessionCookie('', secure));
+    if (body.op === 'auth.signOut' || body.op === 'auth.signOutAll')
+      response.setHeader('Set-Cookie', sessionCookie('', secure));
     return send(200, { data: result });
   } catch (error) {
     if (error instanceof ZodError)
@@ -104,17 +131,23 @@ export async function handleRequest(
       });
     if (error instanceof SyntaxError)
       return send(400, { code: 'VALIDATION', message: 'Solicitação inválida.' });
-    if (error instanceof AppError)
+    if (error instanceof AppError) {
+      if (error.code === 'RATE_LIMITED') response.setHeader('Retry-After', '900');
       return send(
-        error.code === 'UNAUTHORIZED'
-          ? 401
-          : error.code === 'NOT_FOUND'
-            ? 404
-            : error.code === 'CAPACITY_CONFLICT'
-              ? 409
-              : 400,
+        error.code === 'RATE_LIMITED'
+          ? 429
+          : error.code === 'FORBIDDEN'
+            ? 403
+            : error.code === 'UNAUTHORIZED'
+              ? 401
+              : error.code === 'NOT_FOUND'
+                ? 404
+                : error.code === 'CAPACITY_CONFLICT'
+                  ? 409
+                  : 400,
         { code: error.code, message: error.message },
       );
+    }
     // Do not log payloads, connection strings or PostgreSQL error details (may contain personal data).
     console.error('Lava On: falha na operação do servidor.');
     return send(503, {

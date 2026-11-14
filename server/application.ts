@@ -6,8 +6,15 @@ import { AppError } from '../src/domain/errors.js';
 import { createRepositories } from '../src/data/repositories/create-repositories.js';
 import { publicAvailability, createPublicBooking } from '../src/domain/rules/public-booking.js';
 import { createSession, digest, hashPassword, ownerForToken, verifyPassword } from './auth.js';
+import { needsPasswordUpgrade } from './passwords.js';
 import { transaction } from './database.js';
-import { credentials, registration, ownerOperation, publicBooking } from './validation.js';
+import {
+  credentials,
+  registration,
+  ownerOperation,
+  publicBooking,
+  passwordChange,
+} from './validation.js';
 
 export function emptyState(owner: Owner): ApplicationState {
   return {
@@ -50,6 +57,10 @@ async function saveState(client: PoolClient, ownerId: string, state: Application
       'INSERT INTO lava_public_links(establishment_id,owner_id) VALUES($1,$2) ON CONFLICT DO NOTHING',
       [establishment.id, ownerId],
     );
+    await client.query(
+      'INSERT INTO lava_public_schedules(establishment_id,data) VALUES($1,$2::jsonb) ON CONFLICT(establishment_id) DO UPDATE SET data=EXCLUDED.data',
+      [establishment.id, JSON.stringify(publicAvailability(state, establishment.id))],
+    );
   }
 }
 export async function authenticate(action: 'signIn' | 'signUp', input: unknown) {
@@ -81,16 +92,21 @@ export async function authenticate(action: 'signIn' | 'signUp', input: unknown) 
       ownerId = owner.id;
     } else {
       const found = await client.query<{ id: string; password_hash: string }>(
-        'SELECT id,password_hash FROM lava_owners WHERE email=$1',
+        'SELECT id,password_hash FROM lava_owners WHERE email=$1 FOR UPDATE',
         [data.email],
       );
       const row = found.rows[0];
       // Run scrypt even for an unknown email to avoid a quick account-existence check.
       const valid = await verifyPassword(
         data.password,
-        row?.password_hash ?? `${'0'.repeat(32)}:${'0'.repeat(128)}`,
+        row?.password_hash ?? `scrypt$1$65536$8$2$${'0'.repeat(32)}$${'0'.repeat(128)}`,
       );
       if (!row || !valid) throw new AppError('UNAUTHORIZED', 'E-mail ou senha inválidos.');
+      if (needsPasswordUpgrade(row.password_hash))
+        await client.query('UPDATE lava_owners SET password_hash=$2 WHERE id=$1', [
+          row.id,
+          await hashPassword(data.password),
+        ]);
       ownerId = row.id;
     }
     const state = await loadState(client, ownerId, false);
@@ -110,8 +126,17 @@ export async function ownerRequest(token: string, payload: unknown) {
   return transaction(async (client) => {
     const ownerId = await ownerForToken(client, token);
     if (!ownerId) {
-      if (operation.op === 'auth.getSession' || operation.op === 'auth.signOut') return null;
+      if (
+        operation.op === 'auth.getSession' ||
+        operation.op === 'auth.signOut' ||
+        operation.op === 'auth.signOutAll'
+      )
+        return null;
       throw new AppError('UNAUTHORIZED', 'Entre novamente para continuar.');
+    }
+    if (operation.op === 'auth.signOutAll') {
+      await client.query('DELETE FROM lava_sessions WHERE owner_id=$1', [ownerId]);
+      return null;
     }
     if (operation.op === 'auth.signOut') {
       await client.query('DELETE FROM lava_sessions WHERE token_hash=$1', [digest(token)]);
@@ -136,6 +161,11 @@ export async function ownerRequest(token: string, payload: unknown) {
     >;
     const result = await methods[method]!(...operation.args);
     if (changed) await saveState(client, ownerId, state);
+    if (operation.op === 'reservations.anonymizePersonalData')
+      await client.query(
+        "UPDATE lava_booking_requests SET payload_hash='anonymized' WHERE establishment_id=$1 AND receipt->>'id'=$2",
+        operation.args,
+      );
     return result ?? null;
   });
 }
@@ -149,14 +179,30 @@ async function publicOwner(client: PoolClient, establishmentId: string) {
   return result.rows[0].owner_id;
 }
 export async function getPublicSchedule(establishmentId: string) {
-  return transaction(async (client) =>
-    publicAvailability(
-      await loadState(client, await publicOwner(client, establishmentId), false),
-      establishmentId,
-    ),
-  );
+  const result = await (
+    await import('./database.js')
+  )
+    .getPool()
+    .query<{ data: import('../src/domain/models/index.js').PublicSchedule }>(
+      'SELECT data FROM lava_public_schedules WHERE establishment_id=$1',
+      [establishmentId],
+    );
+  if (!result.rows[0])
+    throw new AppError('NOT_FOUND', 'Agenda não encontrada. Confira o link com o estabelecimento.');
+  const data = result.rows[0].data;
+  const today = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Sao_Paulo',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date());
+  return { ...data, days: data.days.filter((day) => day.date >= today) };
 }
-export async function bookPublic(establishmentId: string, payload: unknown) {
+export async function bookPublic(
+  establishmentId: string,
+  payload: unknown,
+  context?: { ip: string },
+) {
   const input = publicBooking.parse(payload);
   return transaction(async (client) => {
     const ownerId = await publicOwner(client, establishmentId);
@@ -174,12 +220,90 @@ export async function bookPublic(establishmentId: string, payload: unknown) {
         );
       return previous.rows[0].receipt;
     }
+    if (context) {
+      const ipCount = await client.query<{ count: string }>(
+        "SELECT count(*) FROM lava_booking_requests WHERE establishment_id=$1 AND client_hash=$2 AND created_at > now()-interval '15 minutes'",
+        [establishmentId, digest(context.ip)],
+      );
+      if (Number(ipCount.rows[0]!.count) >= 3)
+        throw new AppError(
+          'RATE_LIMITED',
+          'Muitas solicitações para este estabelecimento. Aguarde 15 minutos ou entre em contato.',
+        );
+    }
+    const normalizedPhone = (value: string) => {
+      const digits = value.replace(/\D/g, '');
+      return (digits.length === 12 || digits.length === 13) && digits.startsWith('55')
+        ? digits.slice(2)
+        : digits;
+    };
+    const pending = state.reservations.filter(
+      (r) => r.establishmentId === establishmentId && r.status === 'PENDING',
+    );
+    if (
+      pending.filter(
+        (r) => normalizedPhone(r.snapshot.customerPhone) === normalizedPhone(input.customerPhone),
+      ).length >= 2
+    )
+      throw new AppError(
+        'RATE_LIMITED',
+        'Este telefone já possui duas solicitações pendentes. Entre em contato com o estabelecimento.',
+      );
+    if (
+      pending.some(
+        (r) => r.snapshot.vehiclePlate === input.vehiclePlate && r.serviceDate !== input.date,
+      )
+    )
+      throw new AppError(
+        'RATE_LIMITED',
+        'Este veículo já possui uma solicitação pendente. Aguarde a decisão do estabelecimento.',
+      );
     const receipt = createPublicBooking(state, establishmentId, input);
     await saveState(client, ownerId, state);
     await client.query(
-      'INSERT INTO lava_booking_requests(establishment_id,request_id,payload_hash,receipt) VALUES($1,$2,$3,$4::jsonb)',
-      [establishmentId, input.requestId, payloadHash, JSON.stringify(receipt)],
+      'INSERT INTO lava_booking_requests(establishment_id,request_id,payload_hash,receipt,client_hash) VALUES($1,$2,$3,$4::jsonb,$5)',
+      [
+        establishmentId,
+        input.requestId,
+        payloadHash,
+        JSON.stringify(receipt),
+        context ? digest(context.ip) : null,
+      ],
     );
     return receipt;
   });
+}
+
+export async function changePassword(token: string, payload: unknown) {
+  const input = passwordChange.parse(payload);
+  return transaction(async (client) => {
+    const ownerId = await ownerForToken(client, token);
+    if (!ownerId) throw new AppError('UNAUTHORIZED', 'Entre novamente para continuar.');
+    const found = await client.query<{ password_hash: string }>(
+      'SELECT password_hash FROM lava_owners WHERE id=$1 FOR UPDATE',
+      [ownerId],
+    );
+    if (
+      !found.rows[0] ||
+      !(await verifyPassword(input.currentPassword, found.rows[0].password_hash))
+    )
+      throw new AppError('UNAUTHORIZED', 'A senha atual está incorreta.');
+    const replacement = await hashPassword(input.newPassword);
+    await client.query('UPDATE lava_owners SET password_hash=$2 WHERE id=$1', [
+      ownerId,
+      replacement,
+    ]);
+    await client.query('DELETE FROM lava_sessions WHERE owner_id=$1', [ownerId]);
+    return {
+      token: await createSession(client, ownerId),
+      session: await ownerRequestSession(client, ownerId),
+    };
+  });
+}
+async function ownerRequestSession(client: PoolClient, ownerId: string) {
+  const state = await loadState(client, ownerId, false);
+  return createRepositories({
+    read: async (reader) => reader(state),
+    write: async (writer) => writer(state),
+  }).auth.getSession();
 }

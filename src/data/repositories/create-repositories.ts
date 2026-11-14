@@ -1,3 +1,4 @@
+import { anonymizeReservation } from '../../domain/rules/privacy.js';
 import type {
   ApplicationState as MockDatabaseState,
   StateDatabase,
@@ -329,6 +330,12 @@ export function createRepositories(database: StateDatabase): Repositories {
       },
     },
     reservations: {
+      async anonymizePersonalData(establishmentId, reservationId) {
+        return database.write((state) => {
+          requireEstablishment(state, establishmentId);
+          return anonymizeReservation(state, establishmentId, reservationId);
+        });
+      },
       async list(establishmentId, filters: ReservationFilters = {}) {
         return database.read((state) => {
           const establishment = requireEstablishment(state, establishmentId);

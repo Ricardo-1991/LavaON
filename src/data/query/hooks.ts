@@ -183,3 +183,18 @@ export function useDashboard(date: CalendarDate) {
     refetchInterval: isSharedMode ? 15000 : false,
   });
 }
+
+export function useAnonymizeReservation(reservationId: string) {
+  const id = useActiveEstablishmentId();
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: () => repositories.reservations.anonymizePersonalData(id, reservationId),
+    onSuccess: async () => {
+      await Promise.all([
+        client.invalidateQueries({ queryKey: queryKeys.reservations(id) }),
+        client.invalidateQueries({ queryKey: queryKeys.schedule(id) }),
+        client.invalidateQueries({ queryKey: queryKeys.dashboard(id) }),
+      ]);
+    },
+  });
+}

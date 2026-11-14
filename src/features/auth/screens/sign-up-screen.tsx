@@ -20,8 +20,8 @@ const schema = z.object({
   password: z
     .string()
     .min(
-      isSharedMode ? 8 : 4,
-      isSharedMode ? 'Use pelo menos 8 caracteres.' : 'Informe ao menos 4 caracteres.',
+      isSharedMode ? 12 : 4,
+      isSharedMode ? 'Use pelo menos 12 caracteres.' : 'Informe ao menos 4 caracteres.',
     )
     .max(128),
 });

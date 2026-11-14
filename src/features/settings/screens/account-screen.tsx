@@ -1,3 +1,5 @@
+import { AccountSecurity } from '../components/account-security';
+import { isSharedMode } from '@/data/repositories';
 import styles from './account-screen.module.css';
 import { cx } from '@/shared/ui/classes';
 import { showDialog } from '@/shared/ui/dialog';
@@ -38,23 +40,38 @@ export default function AccountScreen() {
       },
     ]);
   return (
-    <ScreenContainer form>
+    <ScreenContainer>
       <div className={cx('stack')}>
         <span className={cx(uiStyles.title)}>Sua conta</span>
         <span className={cx(uiStyles.muted)}>Perfil usado para administrar o estabelecimento.</span>
       </div>
+      <form
+        onSubmit={(event) => {
+          event.preventDefault();
+          void save();
+        }}
+      >
+        <button type="submit" hidden aria-hidden="true" tabIndex={-1}>
+          Salvar perfil
+        </button>
+        <Card>
+          <Input label="Nome" value={name} onChangeText={setName} />
+          <div className={cx('stack', styles.field)}>
+            <span className={cx(styles.label)}>E-mail</span>
+            <span className={cx(styles.value)}>{session?.owner.email}</span>
+          </div>
+          <Button title="Salvar nome" onClick={save} loading={saving} />
+        </Card>
+      </form>
+      <AccountSecurity />
       <Card>
-        <Input label="Nome" value={name} onChangeText={setName} />
-        <div className={cx('stack', styles.field)}>
-          <span className={cx(styles.label)}>E-mail</span>
-          <span className={cx(styles.value)}>{session?.owner.email}</span>
-        </div>
-        <Button title="Salvar nome" onClick={save} loading={saving} />
-      </Card>
-      <Card>
-        <span className={cx(uiStyles.heading)}>Acesso demonstrativo</span>
+        <span className={cx(uiStyles.heading)}>
+          {isSharedMode ? 'Acesso ao estabelecimento' : 'Acesso demonstrativo'}
+        </span>
         <span className={cx(uiStyles.muted)}>
-          Autenticação e alteração de senha reais serão conectadas ao backend.
+          {isSharedMode
+            ? 'Sua sessão é protegida por senha. Encerre o acesso ao usar um dispositivo compartilhado.'
+            : 'Autenticação e alteração de senha reais serão conectadas ao backend.'}
         </span>
         <Button title="Sair da conta" variant="danger" onClick={logout} />
       </Card>

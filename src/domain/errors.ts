@@ -1,5 +1,7 @@
 export type AppErrorCode =
   | 'VALIDATION'
+  | 'RATE_LIMITED'
+  | 'FORBIDDEN'
   | 'NOT_FOUND'
   | 'UNAUTHORIZED'
   | 'INVALID_TRANSITION'
