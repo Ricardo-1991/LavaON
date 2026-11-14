@@ -102,6 +102,7 @@ export interface ReservationSnapshot {
 }
 
 export interface Reservation {
+  anonymizedAt?: IsoTimestamp;
   id: Id;
   establishmentId: Id;
   customerId: Id;

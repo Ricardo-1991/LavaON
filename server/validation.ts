@@ -51,11 +51,12 @@ const filters = z
     pageSize: z.number().int().positive().max(100).optional(),
   })
   .optional();
-const operation = <T extends z.ZodType>(op: string, args: T) =>
+const operation = <const Name extends string, T extends z.ZodType>(op: Name, args: T) =>
   z.object({ op: z.literal(op), args });
 export const ownerOperation = z.union([
   operation('auth.getSession', z.tuple([])),
   operation('auth.signOut', z.tuple([])),
+  operation('auth.signOutAll', z.tuple([])),
   operation('auth.updateOwnerName', z.tuple([id, text])),
   operation('establishments.getById', z.tuple([id])),
   operation('establishments.createForOwner', z.tuple([id, establishment, operatingWeek])),
@@ -78,6 +79,7 @@ export const ownerOperation = z.union([
   operation('services.setActive', z.tuple([id, id, z.boolean()])),
   operation('reservations.list', z.tuple([id, filters])),
   operation('reservations.getById', z.tuple([id, id])),
+  operation('reservations.anonymizePersonalData', z.tuple([id, id])),
   operation(
     'reservations.performAction',
     z.tuple([id, id, z.enum(['ACCEPT', 'REJECT', 'CANCEL', 'COMPLETE', 'MARK_NO_SHOW'])]),
@@ -106,5 +108,12 @@ export const credentials = z.object({
     .transform((s) => s.toLowerCase()),
   password: z.string().min(8).max(128),
 });
-export const registration = credentials.extend({ name: text.min(3) });
+export const registration = credentials.extend({
+  name: text.min(3),
+  password: z.string().min(12, 'Use pelo menos 12 caracteres.').max(128),
+});
+export const passwordChange = z.object({
+  currentPassword: z.string().min(1).max(128),
+  newPassword: z.string().min(12, 'Use pelo menos 12 caracteres.').max(128),
+});
 export { publicBooking } from '../src/domain/validation/booking.js';

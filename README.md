@@ -13,7 +13,7 @@ Há dois modos separados:
 - **Demonstração local** (padrão): IndexedDB, exemplos comerciais e acesso simulado. Funciona offline após o primeiro carregamento. Os dados pertencem apenas àquele navegador.
 - **Compartilhado** (`VITE_DATA_MODE=server`): funções Node.js na Vercel, autenticação por senha e PostgreSQL integrado pelo Neon. O proprietário e seus clientes acessam o mesmo banco, em dispositivos diferentes. Consultas e gravações precisam de internet; não há fila de reservas offline.
 
-Os cadastros demonstrativos existentes são preservados no IndexedDB. Não são importados para o banco compartilhado. Neste último modo, crie uma conta com senha de pelo menos oito caracteres, configure o estabelecimento, cadastre os serviços e abra a agenda. Não existe conta demonstrativa de acesso ao servidor.
+Os cadastros demonstrativos existentes são preservados no IndexedDB. Não são importados para o banco compartilhado. Neste último modo, crie uma conta com senha de pelo menos doze caracteres, configure o estabelecimento, cadastre os serviços e abra a agenda. Não existe conta demonstrativa de acesso ao servidor. Contas anteriores continuam funcionando.
 
 ## Executar a demonstração local
 
@@ -37,7 +37,7 @@ npm run dev:api
 npm run dev
 ```
 
-A API usa a porta 3001; o Vite encaminha `/api` para ela. Para usar outro destino, configure `LAVA_API_TARGET` no processo Vite. Consulte [docs/shared-booking.md](docs/shared-booking.md) para banco, autenticação, concorrência e limites.
+A API usa a porta 3001; o Vite encaminha `/api` para ela. Para usar outro destino, configure `LAVA_API_TARGET` no processo Vite. Consulte [docs/shared-booking.md](docs/shared-booking.md) para banco, autenticação, concorrência e limites. A operação publicada usa `LAVA_DATABASE_URL` restrita; a migração exige `DATABASE_URL` administrativa em um processo separado. Procedimentos de privacidade, recuperação e backup: [docs/security-operations.md](docs/security-operations.md).
 
 ## PWA
 

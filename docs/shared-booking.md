@@ -19,7 +19,7 @@ A criação de uma semana é atômica: datas já publicadas ou capacidades confl
 
 A função `/api/app` executa exclusivamente no servidor. O PostgreSQL pode ser conectado pelo Neon no Marketplace Vercel; use `DATABASE_URL` ou `POSTGRES_URL` apenas no ambiente do servidor.
 
-`server/database.ts` contém uma migração aditiva, executada por `npm run db:migrate`. As tabelas são `lava_owners`, `lava_states`, `lava_sessions`, `lava_public_links`, `lava_booking_requests` e `lava_rate_limits`. A migração usa um advisory lock e nunca recria os cadastros.
+`server/database.ts` contém uma migração aditiva, executada por `npm run db:migrate` com credencial administrativa. A execução publicada usa `LAVA_DATABASE_URL` restrita, em banco separado por ambiente. As tabelas são `lava_environment`, `lava_owners`, `lava_states`, `lava_sessions`, `lava_public_links`, `lava_public_schedules`, `lava_booking_requests` e `lava_rate_limits`. A migração usa um advisory lock e nunca recria os cadastros.
 
 Os dados comerciais existentes são representados por um documento JSONB versionado por proprietário. Os contratos e regras são compartilhados com o adaptador IndexedDB. Cada alteração obtém `SELECT ... FOR UPDATE` na linha daquele proprietário e realiza a leitura, validação da capacidade, alteração e commit na mesma conexão/transação. Isso também serializa a criação pública com recusas, cancelamentos e mudanças feitas pelo proprietário. Estabelecimentos de proprietários diferentes usam linhas independentes. Esse modelo atende os testes iniciais; para maior volume por conta, será necessário decompor o documento em tabelas e reduzir o escopo dos bloqueios.
 
@@ -31,7 +31,9 @@ Cada envio público tem uma chave UUID. A chave e o hash do conteúdo são salvo
 
 O proprietário se autentica com e-mail e senha. Senhas recebem scrypt com salt aleatório; tokens de sessão são aleatórios, ficam em cookie HttpOnly/SameSite=Lax/Secure em produção e têm apenas seu hash no banco. A sessão expira em trinta dias e sair invalida o token. O servidor restaura a identidade pelo cookie e valida a associação ao estabelecimento em cada operação privada.
 
-A API aceita somente operações e formatos validados por Zod. Verifica origem nas gravações, aplica limites persistidos de tentativas por IP/e-mail no acesso e por IP na reserva pública, e limita o tamanho das solicitações. Não inclui segredos em variáveis `VITE_*` nem registra os dados pessoais de solicitações em logs de falha.
+A API aceita somente operações e formatos validados por Zod. Verifica origem nas gravações, aplica BotID Basic e limites persistidos por origem/e-mail no acesso, por origem/estabelecimento e telefone na reserva pública, e limita o tamanho das solicitações. Não inclui segredos em variáveis `VITE_*` nem registra dados pessoais em logs de falha. A consulta pública lê uma projeção separada, sem carregar o documento privado.
+
+Em Minha conta há troca de senha com revogação das sessões e saída de todos os dispositivos. Reservas encerradas permitem anonimização manual, com confirmação; não há exclusão automática de clientes ou expiração de pendências. Detalhes dos limites e procedimentos de recuperação/backup estão em [security-operations.md](security-operations.md).
 
 A leitura pública contém apenas estabelecimento, serviços oferecidos e disponibilidade. Não expõe reservas, nomes, telefones ou placas dos clientes, contas ou sessões. O protocolo não permite consultar dados de outras reservas. Não há envio de confirmação por e-mail/WhatsApp ou recuperação automática de senha nesta etapa.
 

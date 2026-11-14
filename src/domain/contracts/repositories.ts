@@ -46,6 +46,7 @@ export interface ServiceRepository {
 }
 
 export interface ReservationRepository {
+  anonymizePersonalData(establishmentId: string, reservationId: string): Promise<Reservation>;
   list(
     establishmentId: string,
     filters?: ReservationFilters,

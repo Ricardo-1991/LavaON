@@ -22,6 +22,7 @@
     "src",
     "server",
     "api",
+    "scripts",
     "tests",
     "vite.config.ts",
     "playwright.config.ts",

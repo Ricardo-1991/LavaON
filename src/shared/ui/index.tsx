@@ -94,6 +94,7 @@ interface InputProps {
   multiline?: boolean;
   type?: 'text' | 'date';
   min?: string;
+  autoComplete?: InputHTMLAttributes<HTMLInputElement>['autoComplete'];
 }
 export function Input({
   label,
@@ -107,6 +108,7 @@ export function Input({
   multiline,
   type: inputType,
   min,
+  autoComplete,
 }: InputProps) {
   const id = useId();
   const type = secureTextEntry
@@ -130,13 +132,15 @@ export function Input({
     'aria-describedby': error ? `${id}-error` : undefined,
     autoCapitalize,
     min,
-    autoComplete: secureTextEntry
-      ? 'current-password'
-      : type === 'email'
-        ? 'email'
-        : type === 'tel'
-          ? 'tel'
-          : undefined,
+    autoComplete:
+      autoComplete ??
+      (secureTextEntry
+        ? 'current-password'
+        : type === 'email'
+          ? 'email'
+          : type === 'tel'
+            ? 'tel'
+            : undefined),
   };
   return (
     <div className={styles.field}>

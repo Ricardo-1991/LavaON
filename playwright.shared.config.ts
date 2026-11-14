@@ -10,7 +10,7 @@ export default defineConfig({
   outputDir: 'test-results-shared',
   testDir: './tests/shared',
   fullyParallel: true,
-  workers: 3,
+  workers: 1,
   timeout: 60000,
   expect: { timeout: 10000 },
   reporter: [['list']],

@@ -1,17 +1,32 @@
-import { beforeAll, beforeEach, afterAll, describe, expect, test } from 'vitest';
-import { randomUUID } from 'node:crypto';
+import { beforeAll, beforeEach, afterAll, describe, expect, test, vi } from 'vitest';
+import { randomUUID, randomBytes, scryptSync } from 'node:crypto';
 import { createServer, type Server } from 'node:http';
-import { migrate, getPool } from '../../server/database';
+import {
+  migrate,
+  getPool,
+  getMigrationPool,
+  connectionPool,
+  migration,
+  ensureDatabaseEnvironment,
+} from '../../server/database';
 import {
   authenticate,
   bookPublic,
   getPublicSchedule,
   ownerRequest,
+  changePassword,
 } from '../../server/application';
+import maintenance from '../../api/maintenance';
+import { exportEncryptedBackup, restoreEncryptedBackup } from '../../server/backup';
 import { handleRequest } from '../../server/http';
+import { verifyBrowser } from '../../server/bot-protection';
+import { digest } from '../../server/auth';
+import { AppError } from '@/domain/errors';
 import { getTodayInTimeZone } from '@/domain/rules/reservations';
 import { addCalendarDays } from '@/domain/rules/schedule';
 import type { BookingReceipt, DaySchedule, Establishment, Service, Session } from '@/domain/models';
+
+vi.mock('../../server/bot-protection', () => ({ verifyBrowser: vi.fn().mockResolvedValue(undefined) }));
 
 const connection = process.env.TEST_DATABASE_URL;
 if (
@@ -59,7 +74,9 @@ async function open(capacity: number, days = 1) {
 beforeAll(async () => {
   await migrate();
   server = createServer((request, response) => {
-    void handleRequest(request, response);
+    void (request.url?.startsWith('/api/maintenance')
+      ? maintenance(request, response)
+      : handleRequest(request, response));
   });
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
   const address = server.address();
@@ -104,6 +121,246 @@ beforeEach(async () => {
 afterAll(async () => {
   await new Promise<void>((resolve) => server.close(() => resolve()));
   await getPool().end();
+  await getMigrationPool().end();
+});
+
+describe('correções de segurança', () => {
+  test('bot rejeitado e credenciais inválidas não esgotam o limite do e-mail da vítima', async () => {
+    const post = (input: unknown) => fetch(`${baseUrl}/api/app`, {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({op:'auth.signIn',args:[input]})});
+    vi.mocked(verifyBrowser).mockRejectedValueOnce(new AppError('FORBIDDEN','Acesso rejeitado.'));
+    expect((await post({email:'owner@example.com',password:'password-for-tests'})).status).toBe(403);
+    expect((await post({email:'owner@example.com'})).status).toBe(400);
+    const key=digest(`auth-email:${digest('owner@example.com')}`);
+    expect((await getPool().query('SELECT count FROM lava_rate_limits WHERE key=$1',[key])).rowCount).toBe(0);
+    expect((await post({email:'owner@example.com',password:'password-for-tests'})).status).toBe(200);
+    expect((await getPool().query('SELECT count FROM lava_rate_limits WHERE key=$1',[key])).rows[0].count).toBe(1);
+  });
+  test('login preserva contas antigas e atualiza seu hash somente com a senha correta', async () => {
+    const salt = randomBytes(16).toString('hex');
+    const legacy = `${salt}:${scryptSync('password-for-tests', salt, 64).toString('hex')}`;
+    await getPool().query('UPDATE lava_owners SET password_hash=$1 WHERE id=$2', [legacy, ownerId]);
+    await expect(
+      authenticate('signIn', { email: 'owner@example.com', password: 'wrong-password' }),
+    ).rejects.toMatchObject({ code: 'UNAUTHORIZED' });
+    expect(
+      (await getPool().query('SELECT password_hash FROM lava_owners WHERE id=$1', [ownerId]))
+        .rows[0].password_hash,
+    ).toBe(legacy);
+    const login = await authenticate('signIn', {
+      email: 'owner@example.com',
+      password: 'password-for-tests',
+    });
+    expect(login.session!.owner.id).toBe(ownerId);
+    expect(
+      (await getPool().query('SELECT password_hash FROM lava_owners WHERE id=$1', [ownerId]))
+        .rows[0].password_hash,
+    ).toMatch(/^scrypt\$1\$65536\$8\$2\$/);
+  });
+  test('alterar senha exige senha atual, rotaciona o token e revoga todos os acessos anteriores', async () => {
+    const other = await authenticate('signIn', {
+      email: 'owner@example.com',
+      password: 'password-for-tests',
+    });
+    await expect(
+      changePassword('', {
+        currentPassword: 'password-for-tests',
+        newPassword: 'replacement-password',
+      }),
+    ).rejects.toMatchObject({ code: 'UNAUTHORIZED' });
+    await expect(
+      changePassword(token, { currentPassword: 'incorrect', newPassword: 'replacement-password' }),
+    ).rejects.toMatchObject({ code: 'UNAUTHORIZED' });
+    expect(await rpc('auth.getSession', [], other.token)).not.toBeNull();
+    const changed = await changePassword(token, {
+      currentPassword: 'password-for-tests',
+      newPassword: 'replacement-password',
+    });
+    expect(await rpc('auth.getSession', [], token)).toBeNull();
+    expect(await rpc('auth.getSession', [], other.token)).toBeNull();
+    expect(await rpc('auth.getSession', [], changed.token)).not.toBeNull();
+    await expect(
+      authenticate('signIn', { email: 'owner@example.com', password: 'password-for-tests' }),
+    ).rejects.toMatchObject({ code: 'UNAUTHORIZED' });
+    const fresh = await authenticate('signIn', {
+      email: 'owner@example.com',
+      password: 'replacement-password',
+    });
+    await rpc('auth.signOutAll', [], changed.token);
+    expect(await rpc('auth.getSession', [], fresh.token)).toBeNull();
+  });
+  test('marca do ambiente bloqueia banco incorreto e não é reescrita por migração', async () => {
+    vi.stubEnv('VERCEL_ENV', 'preview');
+    try {
+      await expect(ensureDatabaseEnvironment()).rejects.toMatchObject({ code: 'PERSISTENCE' });
+      await expect(migrate()).rejects.toThrow('outro ambiente');
+      expect((await getPool().query('SELECT name FROM lava_environment')).rows[0].name).toBe(
+        'test',
+      );
+    } finally {
+      vi.unstubAllEnvs();
+    }
+    await expect(ensureDatabaseEnvironment()).resolves.toBeUndefined();
+  });
+  test('limites por telefone e IP são atômicos e repetição idempotente não consome novo limite', async () => {
+    await open(15);
+    const samePhone = await Promise.allSettled(
+      Array.from({ length: 8 }, (_, i) => bookPublic(establishmentId, input(i))),
+    );
+    expect(samePhone.filter((r) => r.status === 'fulfilled')).toHaveLength(2);
+    const unique = (i: number) => ({
+      ...input(i + 20),
+      customerPhone: `1198888${String(i).padStart(4, '0')}`,
+    });
+    const payload = unique(1);
+    const receipt = await bookPublic(establishmentId, payload, { ip: '192.0.2.1' });
+    await bookPublic(establishmentId, unique(2), { ip: '192.0.2.1' });
+    await bookPublic(establishmentId, unique(3), { ip: '192.0.2.1' });
+    await expect(bookPublic(establishmentId, unique(4), { ip: '192.0.2.1' })).rejects.toMatchObject(
+      { code: 'RATE_LIMITED' },
+    );
+    expect(await bookPublic(establishmentId, payload, { ip: '192.0.2.1' })).toEqual(receipt);
+    expect((await getPublicSchedule(establishmentId)).days[0]!.available).toBe(10);
+  });
+  test('HTTP responde 429 e consulta pública tem limite próprio sem expor estado privado', async () => {
+    await open(4);
+    for (let i = 0; i < 2; i++) await bookPublic(establishmentId, input(i));
+    const limited = await fetch(`${baseUrl}/api/app`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ op: 'public.book', args: [establishmentId, input(3)] }),
+    });
+    expect(limited.status).toBe(429);
+    expect(limited.headers.get('retry-after')).toBe('900');
+    await getPool().query(
+      "UPDATE lava_states SET data=jsonb_set(data,'{customers}','[]') WHERE owner_id=$1",
+      [ownerId],
+    );
+    const projection = await getPublicSchedule(establishmentId);
+    expect(JSON.stringify(projection)).not.toMatch(/Cliente|ABC000|customerPhone|owner@example/);
+    for (let i = 0; i < 120; i++)
+      expect((await fetch(`${baseUrl}/api/app?establishment=${establishmentId}`)).status).toBe(200);
+    expect((await fetch(`${baseUrl}/api/app?establishment=${establishmentId}`)).status).toBe(429);
+  });
+  test('somente proprietário anonimiza reserva encerrada e preserva serviço, valor, histórico e capacidade', async () => {
+    await open(2);
+    const payload = input();
+    const receipt = (await bookPublic(establishmentId, payload)) as BookingReceipt;
+    await expect(
+      rpc('reservations.anonymizePersonalData', [establishmentId, receipt.id]),
+    ).rejects.toMatchObject({ code: 'VALIDATION' });
+    await rpc('reservations.performAction', [establishmentId, receipt.id, 'REJECT']);
+    const stranger = await authenticate('signUp', {
+      name: 'Outro proprietário',
+      email: 'stranger@example.com',
+      password: 'stranger-password',
+    });
+    await expect(
+      rpc('reservations.anonymizePersonalData', [establishmentId, receipt.id], stranger.token),
+    ).rejects.toMatchObject({ code: 'NOT_FOUND' });
+    const redacted = await rpc<import('@/domain/models').Reservation>(
+      'reservations.anonymizePersonalData',
+      [establishmentId, receipt.id],
+    );
+    expect(redacted).toMatchObject({
+      id: receipt.id,
+      status: 'REJECTED',
+      anonymizedAt: expect.any(String),
+      snapshot: {
+        customerName: 'Cliente anonimizado',
+        customerPhone: '',
+        vehiclePlate: '',
+        serviceName: service.name,
+        priceInCents: 4000,
+      },
+    });
+    const stored = JSON.stringify(
+      (await getPool().query('SELECT data FROM lava_states WHERE owner_id=$1', [ownerId])).rows[0]
+        .data,
+    );
+    expect(stored).not.toMatch(/Cliente 0|ABC0000|Honda Fit/);
+    expect((await getPublicSchedule(establishmentId)).days[0]!.available).toBe(2);
+    expect(await rpc('reservations.anonymizePersonalData', [establishmentId, receipt.id])).toEqual(
+      redacted,
+    );
+    expect(
+      (
+        await getPool().query(
+          'SELECT payload_hash FROM lava_booking_requests WHERE request_id=$1',
+          [payload.requestId],
+        )
+      ).rows[0].payload_hash,
+    ).toBe('anonymized');
+  });
+  test('manutenção é autenticada e remove somente metadados de segurança expirados', async () => {
+    await open(2);
+    await bookPublic(establishmentId, input());
+    await getPool().query("INSERT INTO lava_sessions VALUES('expired',$1,now()-interval '1 day')", [
+      ownerId,
+    ]);
+    await getPool().query(
+      "INSERT INTO lava_rate_limits VALUES('expired',1,now()-interval '2 days'),('live',1,now()+interval '1 hour')",
+    );
+    vi.stubEnv('CRON_SECRET', 'local-test-secret');
+    try {
+      expect((await fetch(`${baseUrl}/api/maintenance`)).status).toBe(401);
+      expect(
+        (
+          await fetch(`${baseUrl}/api/maintenance`, {
+            headers: { Authorization: 'Bearer wrong-secret' },
+          })
+        ).status,
+      ).toBe(401);
+      expect(
+        (
+          await fetch(`${baseUrl}/api/maintenance`, {
+            headers: { Authorization: 'Bearer local-test-secret' },
+          })
+        ).status,
+      ).toBe(200);
+      expect(
+        (await getPool().query("SELECT 1 FROM lava_sessions WHERE token_hash='expired'")).rowCount,
+      ).toBe(0);
+      expect((await getPool().query('SELECT key FROM lava_rate_limits ORDER BY key')).rows).toEqual(
+        [{ key: 'live' }],
+      );
+      expect(await rpc('auth.getSession')).not.toBeNull();
+      expect((await getPublicSchedule(establishmentId)).days[0]!.available).toBe(1);
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+  test('backup criptografado restaura em banco vazio e recusa chave incorreta, alteração e sobrescrita', async () => {
+    await open(2);
+    await bookPublic(establishmentId, input());
+    const key = randomBytes(32).toString('base64');
+    const archive = await exportEncryptedBackup(getPool(), key);
+    expect(archive.includes(Buffer.from('Cliente 0'))).toBe(false);
+    const targetUrl = new URL(connection!);
+    targetUrl.pathname = '/lavaon_restore_test';
+    const target = connectionPool(targetUrl.toString());
+    await getPool().query('CREATE DATABASE lavaon_restore_test');
+    try {
+      await target.query(migration);
+      await target.query("INSERT INTO lava_environment VALUES(true,'test')");
+      await expect(
+        restoreEncryptedBackup(target, randomBytes(32).toString('base64'), archive),
+      ).rejects.toThrow();
+      const corrupted = Buffer.from(archive);
+      corrupted[corrupted.length - 1]! ^= 1;
+      await expect(restoreEncryptedBackup(target, key, corrupted)).rejects.toThrow();
+      expect((await target.query('SELECT count(*) FROM lava_owners')).rows[0].count).toBe('0');
+      await restoreEncryptedBackup(target, key, archive);
+      const restored = (
+        await target.query('SELECT data FROM lava_states WHERE owner_id=$1', [ownerId])
+      ).rows[0].data;
+      expect(restored.reservations[0].snapshot.customerName).toBe('Cliente 0');
+      expect((await target.query('SELECT count(*) FROM lava_sessions')).rows[0].count).toBe('0');
+      await expect(restoreEncryptedBackup(target, key, archive)).rejects.toThrow('banco vazio');
+    } finally {
+      await target.end();
+      await getPool().query('DROP DATABASE lavaon_restore_test');
+    }
+  });
 });
 
 describe('agenda compartilhada PostgreSQL', () => {
